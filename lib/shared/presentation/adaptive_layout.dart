@@ -52,11 +52,12 @@ class TabletPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final compactTablet = MediaQuery.sizeOf(context).width < 900;
+    final colors = Theme.of(context).colorScheme;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFF282A2D),
+        color: colors.surfaceContainerLow,
         borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: const Color(0xFF3C4043)),
+        border: Border.all(color: colors.outlineVariant),
       ),
       child: Padding(
         padding: padding ?? EdgeInsets.all(compactTablet ? 16 : 24),

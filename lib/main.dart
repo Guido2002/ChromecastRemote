@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_chrome_cast/flutter_chrome_cast.dart';
 
 import 'features/discovery/presentation/devices_screen.dart';
+import 'shared/presentation/app_theme.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -50,65 +51,10 @@ class _ChromecastRemoteAppState extends State<ChromecastRemoteApp> {
 
   @override
   Widget build(BuildContext context) {
-    // Palette follows the reference remote design: near-black background
-    // (#202124), dark gray controls, restrained accent.
-    const background = Color(0xFF202124);
-    const surface = Color(0xFF2F3133);
-    const accent = Color(0xFF8DAAFF);
-
     return MaterialApp(
       title: 'Chromecast Remote',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        brightness: Brightness.dark,
-        scaffoldBackgroundColor: background,
-        colorScheme: const ColorScheme.dark(
-          primary: accent,
-          onPrimary: Color(0xFF101A35),
-          secondary: Color(0xFF8CE4D0),
-          surface: background,
-          onSurface: Color(0xFFF0F3FA),
-          onSurfaceVariant: Color(0xFFA8B0C0),
-          error: Color(0xFFFF7B82),
-        ),
-        appBarTheme: const AppBarTheme(
-          backgroundColor: background,
-          surfaceTintColor: Colors.transparent,
-          elevation: 0,
-          centerTitle: false,
-        ),
-        cardTheme: CardThemeData(
-          color: surface,
-          elevation: 0,
-          margin: EdgeInsets.zero,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
-          ),
-        ),
-        inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          fillColor: const Color(0xFF28292B),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide.none,
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: const BorderSide(color: Color(0xFF3C4043)),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: const BorderSide(color: accent, width: 1.5),
-          ),
-        ),
-        snackBarTheme: SnackBarThemeData(
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-        ),
-        useMaterial3: true,
-      ),
+      theme: buildAppTheme(),
       home: FutureBuilder<void>(
         future: _castInitialization,
         builder: (context, snapshot) {
@@ -149,10 +95,7 @@ class _StartupLoading extends StatelessWidget {
 }
 
 class _StartupError extends StatelessWidget {
-  const _StartupError({
-    required this.error,
-    required this.onRetry,
-  });
+  const _StartupError({required this.error, required this.onRetry});
 
   final Object? error;
   final VoidCallback onRetry;
@@ -177,8 +120,8 @@ class _StartupError extends StatelessWidget {
               Text(
                 '$error',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 24),

@@ -5,6 +5,7 @@ import 'package:flutter_chrome_cast/flutter_chrome_cast.dart';
 
 import '../../../core/app_services.dart';
 import '../../../shared/presentation/adaptive_layout.dart';
+import '../../../shared/presentation/app_motion.dart';
 import '../../../shared/models/discovered_device.dart';
 import '../../pairing/paired_device_store.dart';
 import '../../pairing/presentation/pairing_screen.dart';
@@ -28,6 +29,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
   List<DiscoveredDevice> _devices = const [];
   bool _scanning = false;
   bool _autoReconnectAttempted = false;
+  String? _openingDeviceId;
   String? _error;
 
   @override
@@ -94,11 +96,17 @@ class _DevicesScreenState extends State<DevicesScreen> {
   }
 
   Future<void> _openDevice(DiscoveredDevice device) async {
-    switch (device.protocol) {
-      case DeviceProtocol.androidTvRemote:
-        await _openAndroidTv(device);
-      case DeviceProtocol.googleCast:
-        await _openCastDevice(device);
+    if (_openingDeviceId != null) return;
+    setState(() => _openingDeviceId = device.id);
+    try {
+      switch (device.protocol) {
+        case DeviceProtocol.androidTvRemote:
+          await _openAndroidTv(device);
+        case DeviceProtocol.googleCast:
+          await _openCastDevice(device);
+      }
+    } finally {
+      if (mounted) setState(() => _openingDeviceId = null);
     }
   }
 
@@ -193,7 +201,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
     final tablet = AdaptiveLayout.isTablet(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Devices'),
+        title: const Text('Your devices'),
         actions: [
           IconButton(
             tooltip: 'Check for updates',
@@ -217,19 +225,28 @@ class _DevicesScreenState extends State<DevicesScreen> {
         maxWidth: 1040,
         child: Column(
           children: [
-            if (_error != null)
-              Padding(
-                padding: EdgeInsets.fromLTRB(
-                  tablet ? 24 : 16,
-                  tablet ? 12 : 0,
-                  tablet ? 24 : 16,
-                  8,
-                ),
-                child: _ErrorBanner(message: _error!, onRetry: _rescan),
-              ),
+            AnimatedSwitcher(
+              duration: AppMotion.standard,
+              child: _error == null
+                  ? const SizedBox.shrink()
+                  : Padding(
+                      key: const ValueKey('discovery-error'),
+                      padding: EdgeInsets.fromLTRB(
+                        tablet ? 24 : 16,
+                        tablet ? 12 : 0,
+                        tablet ? 24 : 16,
+                        8,
+                      ),
+                      child: _ErrorBanner(message: _error!, onRetry: _rescan),
+                    ),
+            ),
             Expanded(
               child: _devices.isEmpty
-                  ? _EmptyDevices(scanning: _scanning, error: _error)
+                  ? _EmptyDevices(
+                      scanning: _scanning,
+                      error: _error,
+                      onScan: _rescan,
+                    )
                   : tablet
                   ? GridView.builder(
                       key: const ValueKey('devices-tablet-grid'),
@@ -244,10 +261,17 @@ class _DevicesScreenState extends State<DevicesScreen> {
                       itemCount: _devices.length,
                       itemBuilder: (context, index) {
                         final device = _devices[index];
-                        return _DeviceTile(
-                          device: device,
-                          tablet: true,
-                          onTap: () => _openDevice(device),
+                        return MotionEntrance(
+                          delay: Duration(
+                            milliseconds: (index.clamp(0, 5)) * 45,
+                          ),
+                          child: _DeviceTile(
+                            device: device,
+                            tablet: true,
+                            busy: _openingDeviceId == device.id,
+                            enabled: _openingDeviceId == null,
+                            onTap: () => _openDevice(device),
+                          ),
                         );
                       },
                     )
@@ -257,10 +281,17 @@ class _DevicesScreenState extends State<DevicesScreen> {
                       separatorBuilder: (_, _) => const SizedBox(height: 8),
                       itemBuilder: (context, index) {
                         final device = _devices[index];
-                        return _DeviceTile(
-                          device: device,
-                          tablet: false,
-                          onTap: () => _openDevice(device),
+                        return MotionEntrance(
+                          delay: Duration(
+                            milliseconds: (index.clamp(0, 5)) * 45,
+                          ),
+                          child: _DeviceTile(
+                            device: device,
+                            tablet: false,
+                            busy: _openingDeviceId == device.id,
+                            enabled: _openingDeviceId == null,
+                            onTap: () => _openDevice(device),
+                          ),
                         );
                       },
                     ),
@@ -281,10 +312,13 @@ class _DevicesScreenState extends State<DevicesScreen> {
                     color: colors.onSurfaceVariant,
                   ),
                   const SizedBox(width: 8),
-                  Text(
-                    'Phone or tablet and TV must be on the same Wi-Fi network.',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colors.onSurfaceVariant,
+                  Flexible(
+                    child: Text(
+                      'Phone or tablet and TV must be on the same Wi-Fi network.',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colors.onSurfaceVariant,
+                      ),
                     ),
                   ),
                 ],
@@ -302,43 +336,88 @@ class _DeviceTile extends StatelessWidget {
     required this.device,
     required this.onTap,
     required this.tablet,
+    required this.busy,
+    required this.enabled,
   });
 
   final DiscoveredDevice device;
   final VoidCallback onTap;
   final bool tablet;
+  final bool busy;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final isAndroidTv = device.protocol == DeviceProtocol.androidTvRemote;
     return Card(
+      clipBehavior: Clip.antiAlias,
       child: ListTile(
+        enabled: enabled,
         contentPadding: EdgeInsets.symmetric(
           horizontal: tablet ? 20 : 16,
           vertical: tablet ? 12 : 6,
         ),
         leading: CircleAvatar(
-          backgroundColor: colors.primary.withValues(alpha: 0.14),
+          radius: tablet ? 24 : 21,
+          backgroundColor: colors.primaryContainer,
           child: Icon(
             isAndroidTv ? Icons.tv : Icons.cast,
-            color: colors.primary,
+            color: colors.onPrimaryContainer,
           ),
         ),
         title: Text(device.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-        subtitle: Text(device.protocolLabel),
-        trailing: const Icon(Icons.chevron_right),
-        onTap: onTap,
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: colors.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                child: Text(
+                  device.protocolLabel,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: colors.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        trailing: AnimatedSwitcher(
+          duration: AppMotion.standard,
+          child: busy
+              ? const SizedBox.square(
+                  key: ValueKey('opening'),
+                  dimension: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Icon(
+                  Icons.arrow_forward_rounded,
+                  key: const ValueKey('open'),
+                  color: colors.onSurfaceVariant,
+                ),
+        ),
+        onTap: enabled ? onTap : null,
       ),
     );
   }
 }
 
 class _EmptyDevices extends StatelessWidget {
-  const _EmptyDevices({required this.scanning, required this.error});
+  const _EmptyDevices({
+    required this.scanning,
+    required this.error,
+    required this.onScan,
+  });
 
   final bool scanning;
   final String? error;
+  final VoidCallback onScan;
 
   @override
   Widget build(BuildContext context) {
@@ -372,6 +451,17 @@ class _EmptyDevices extends StatelessWidget {
                 context,
               ).textTheme.bodySmall?.copyWith(color: colors.onSurfaceVariant),
               textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            FilledButton.icon(
+              onPressed: scanning ? null : onScan,
+              icon: scanning
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.radar_rounded),
+              label: Text(scanning ? 'Scanning…' : 'Scan again'),
             ),
           ],
         ),

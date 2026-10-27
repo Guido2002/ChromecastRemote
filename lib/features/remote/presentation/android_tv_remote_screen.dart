@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../../../core/app_services.dart';
 import '../../../core/protocol/android_tv/android_key_codes.dart';
 import '../../../shared/presentation/adaptive_layout.dart';
+import '../../../shared/presentation/app_motion.dart';
 import '../../apps/presentation/app_shortcuts_section.dart';
 import '../../pairing/presentation/pairing_screen.dart';
 import '../android_tv_remote_controller.dart';
@@ -141,9 +142,11 @@ class _AndroidTvRemoteScreenState extends State<AndroidTvRemoteScreen> {
               child: SingleChildScrollView(
                 padding: AdaptiveLayout.pagePadding(context),
                 child: AdaptiveContent(
-                  child: tablet
-                      ? _buildTabletControls(capabilities)
-                      : _buildPhoneControls(capabilities),
+                  child: MotionEntrance(
+                    child: tablet
+                        ? _buildTabletControls(capabilities)
+                        : _buildPhoneControls(capabilities),
+                  ),
                 ),
               ),
             ),
@@ -340,7 +343,6 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
     return AdaptiveContent(
       child: Padding(
         padding: EdgeInsets.fromLTRB(tablet ? 20 : 4, 4, tablet ? 20 : 4, 0),
@@ -361,25 +363,8 @@ class _Header extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
-                  Text(
-                    switch (state) {
-                      RemoteConnectionState.connected => 'Connected',
-                      RemoteConnectionState.connecting => 'Connecting…',
-                      RemoteConnectionState.reconnecting => 'Reconnecting…',
-                      RemoteConnectionState.error =>
-                        error ?? 'Connection error',
-                      _ => 'Disconnected',
-                    },
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: state == RemoteConnectionState.connected
-                          ? colors.secondary
-                          : state == RemoteConnectionState.error
-                          ? colors.error
-                          : colors.onSurfaceVariant,
-                    ),
-                  ),
+                  const SizedBox(height: 3),
+                  _ConnectionStatus(state: state, error: error),
                 ],
               ),
             ),
@@ -406,6 +391,60 @@ class _Header extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ConnectionStatus extends StatelessWidget {
+  const _ConnectionStatus({required this.state, required this.error});
+
+  final RemoteConnectionState state;
+  final String? error;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final (label, color) = switch (state) {
+      RemoteConnectionState.connected => ('Connected', colors.secondary),
+      RemoteConnectionState.pairing => ('Pairing…', colors.primary),
+      RemoteConnectionState.connecting => ('Connecting…', colors.primary),
+      RemoteConnectionState.reconnecting => ('Reconnecting…', colors.primary),
+      RemoteConnectionState.error => (
+        error ?? 'Connection error',
+        colors.error,
+      ),
+      RemoteConnectionState.disconnected => (
+        'Disconnected',
+        colors.onSurfaceVariant,
+      ),
+    };
+
+    return AnimatedSwitcher(
+      duration: AppMotion.standard,
+      child: Row(
+        key: ValueKey(state),
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AnimatedContainer(
+            duration: AppMotion.standard,
+            width: 7,
+            height: 7,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 7),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -477,12 +516,12 @@ class _MediaControlsSection extends StatelessWidget {
               style: IconButton.styleFrom(
                 fixedSize: const Size.square(72),
                 backgroundColor: enabled
-                    ? const Color(0xFFE3E5E8)
-                    : const Color(0xFF2F3133).withValues(alpha: 0.4),
-                foregroundColor: const Color(0xFF202124),
-                disabledForegroundColor: const Color(
-                  0xFFE3E5E8,
-                ).withValues(alpha: 0.3),
+                    ? colors.primary
+                    : colors.surfaceContainerHigh.withValues(alpha: 0.5),
+                foregroundColor: colors.onPrimary,
+                disabledForegroundColor: colors.onSurface.withValues(
+                  alpha: 0.3,
+                ),
                 shape: const CircleBorder(),
               ),
             ),
@@ -547,6 +586,7 @@ class _RoundRemoteButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
     return IconButton(
       tooltip: tooltip,
       onPressed: enabled
@@ -558,10 +598,13 @@ class _RoundRemoteButton extends StatelessWidget {
       icon: Icon(icon),
       style: IconButton.styleFrom(
         fixedSize: Size.square(size),
-        backgroundColor: const Color(0xFF2F3133),
-        foregroundColor: const Color(0xFFE3E5E8),
-        disabledBackgroundColor: const Color(0xFF2F3133).withValues(alpha: 0.4),
-        disabledForegroundColor: const Color(0xFFE3E5E8).withValues(alpha: 0.3),
+        backgroundColor: colors.surfaceContainerHigh,
+        foregroundColor: colors.onSurface,
+        disabledBackgroundColor: colors.surfaceContainerHigh.withValues(
+          alpha: 0.4,
+        ),
+        disabledForegroundColor: colors.onSurface.withValues(alpha: 0.3),
+        overlayColor: colors.primary.withValues(alpha: 0.12),
         shape: const CircleBorder(),
       ),
     );
@@ -590,9 +633,10 @@ class _VolumePill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
     final background = enabled
-        ? const Color(0xFF2F3133)
-        : const Color(0xFF2F3133).withValues(alpha: 0.4);
+        ? colors.surfaceContainerHigh
+        : colors.surfaceContainerHigh.withValues(alpha: 0.4);
     return ClipRRect(
       borderRadius: BorderRadius.circular(32),
       child: Container(
@@ -613,7 +657,7 @@ class _VolumePill extends StatelessWidget {
             VerticalDivider(
               width: 1,
               thickness: 1,
-              color: Colors.black.withValues(alpha: 0.35),
+              color: colors.outlineVariant,
             ),
             Expanded(
               child: _VolumeHalf(
@@ -651,6 +695,7 @@ class _VolumeHalf extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
     return GestureDetector(
       onLongPressStart: enabled ? (_) => onLongStart() : null,
       onLongPressEnd: enabled ? (_) => onLongEnd() : null,
@@ -668,8 +713,8 @@ class _VolumeHalf extends StatelessWidget {
             child: Icon(
               icon,
               color: enabled
-                  ? const Color(0xFFE3E5E8)
-                  : const Color(0xFFE3E5E8).withValues(alpha: 0.3),
+                  ? colors.onSurface
+                  : colors.onSurface.withValues(alpha: 0.3),
               semanticLabel: tooltip,
             ),
           ),

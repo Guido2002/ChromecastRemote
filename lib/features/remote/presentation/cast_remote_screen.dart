@@ -4,6 +4,7 @@ import 'package:flutter_chrome_cast/flutter_chrome_cast.dart';
 
 import '../../../media_url.dart';
 import '../../../shared/presentation/adaptive_layout.dart';
+import '../../../shared/presentation/app_motion.dart';
 
 /// Remote screen for classic Chromecast devices.
 ///
@@ -36,14 +37,22 @@ class _CastRemoteScreenState extends State<CastRemoteScreen> {
 
   void _showMessage(String message, {bool isWarning = false}) {
     if (!mounted) return;
+    final colors = Theme.of(context).colorScheme;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
           backgroundColor: isWarning
-              ? const Color(0xFF55431F)
-              : Theme.of(context).colorScheme.errorContainer,
-          content: Text(message),
+              ? colors.secondaryContainer
+              : colors.errorContainer,
+          content: Text(
+            message,
+            style: TextStyle(
+              color: isWarning
+                  ? colors.onSecondaryContainer
+                  : colors.onErrorContainer,
+            ),
+          ),
           duration: const Duration(seconds: 5),
         ),
       );
@@ -72,18 +81,8 @@ class _CastRemoteScreenState extends State<CastRemoteScreen> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                Text(
-                  connected
-                      ? 'Connected · Cast media'
-                      : connecting
-                      ? 'Connecting…'
-                      : 'Disconnected',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: connected
-                        ? Theme.of(context).colorScheme.secondary
-                        : Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
+                const SizedBox(height: 3),
+                _CastStatus(connected: connected, connecting: connecting),
               ],
             ),
             actions: [
@@ -98,49 +97,54 @@ class _CastRemoteScreenState extends State<CastRemoteScreen> {
             padding: AdaptiveLayout.pagePadding(context),
             child: AdaptiveContent(
               maxWidth: 1080,
-              child: tablet
-                  ? Row(
-                      key: const ValueKey('cast-tablet-layout'),
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          flex: 6,
-                          child: Column(
-                            children: [
-                              _MediaControlsCard(
-                                connected: connected,
-                                onMessage: _showMessage,
-                              ),
-                              const SizedBox(height: 18),
-                              _VolumeCard(
-                                session: session,
-                                connected: connected,
-                                onMessage: _showMessage,
-                              ),
-                            ],
+              child: MotionEntrance(
+                child: tablet
+                    ? Row(
+                        key: const ValueKey('cast-tablet-layout'),
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            flex: 6,
+                            child: Column(
+                              children: [
+                                _MediaControlsCard(
+                                  connected: connected,
+                                  onMessage: _showMessage,
+                                ),
+                                const SizedBox(height: 18),
+                                _VolumeCard(
+                                  session: session,
+                                  connected: connected,
+                                  onMessage: _showMessage,
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 24),
-                        Expanded(flex: 5, child: _buildPlaySection(connected)),
-                      ],
-                    )
-                  : Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _MediaControlsCard(
-                          connected: connected,
-                          onMessage: _showMessage,
-                        ),
-                        const SizedBox(height: 14),
-                        _VolumeCard(
-                          session: session,
-                          connected: connected,
-                          onMessage: _showMessage,
-                        ),
-                        const SizedBox(height: 24),
-                        _buildPlaySection(connected),
-                      ],
-                    ),
+                          const SizedBox(width: 24),
+                          Expanded(
+                            flex: 5,
+                            child: _buildPlaySection(connected),
+                          ),
+                        ],
+                      )
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _MediaControlsCard(
+                            connected: connected,
+                            onMessage: _showMessage,
+                          ),
+                          const SizedBox(height: 14),
+                          _VolumeCard(
+                            session: session,
+                            connected: connected,
+                            onMessage: _showMessage,
+                          ),
+                          const SizedBox(height: 24),
+                          _buildPlaySection(connected),
+                        ],
+                      ),
+              ),
             ),
           ),
         );
@@ -171,6 +175,51 @@ class _CastRemoteScreenState extends State<CastRemoteScreen> {
       ),
     ],
   );
+}
+
+class _CastStatus extends StatelessWidget {
+  const _CastStatus({required this.connected, required this.connecting});
+
+  final bool connected;
+  final bool connecting;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final label = connected
+        ? 'Connected · Cast media'
+        : connecting
+        ? 'Connecting…'
+        : 'Disconnected';
+    final color = connected
+        ? colors.secondary
+        : connecting
+        ? colors.primary
+        : colors.onSurfaceVariant;
+
+    return AnimatedSwitcher(
+      duration: AppMotion.standard,
+      child: Row(
+        key: ValueKey(label),
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 7,
+            height: 7,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 7),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _MediaControlsCard extends StatefulWidget {
@@ -254,13 +303,12 @@ class _MediaControlsCardState extends State<_MediaControlsCard> {
                       height: 48,
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(15),
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF718EF5), Color(0xFF8F74D8)],
-                        ),
+                        color: colors.primaryContainer,
+                        border: Border.all(color: colors.outlineVariant),
                       ),
                       child: Icon(
                         mediaLoaded ? Icons.graphic_eq : Icons.ondemand_video,
-                        color: Colors.white,
+                        color: colors.onPrimaryContainer,
                         size: 25,
                       ),
                     ),
@@ -449,13 +497,15 @@ class _RoundControlButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
     return IconButton.filledTonal(
       tooltip: tooltip,
       onPressed: onPressed,
       icon: Icon(icon),
       style: IconButton.styleFrom(
         fixedSize: const Size(50, 50),
-        backgroundColor: const Color(0xFF242D3C),
+        backgroundColor: colors.surfaceContainerHigh,
+        foregroundColor: colors.onSurface,
       ),
     );
   }

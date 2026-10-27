@@ -8,6 +8,7 @@ import '../../../core/app_services.dart';
 import '../../../core/protocol/android_tv/android_tv_pairing_client.dart';
 import '../../../core/protocol/android_tv/pairing_secret.dart';
 import '../../../shared/presentation/adaptive_layout.dart';
+import '../../../shared/presentation/app_motion.dart';
 import '../paired_device_store.dart';
 
 /// Guides the user through Android TV Remote Protocol v2 pairing:
@@ -136,19 +137,34 @@ class _PairingScreenState extends State<PairingScreen> {
           alignment: Alignment.center,
           child: Padding(
             padding: EdgeInsets.all(AdaptiveLayout.isTablet(context) ? 40 : 24),
-            child: switch (_phase) {
-              _PairingPhase.connecting => _PairingProgress(
-                title: 'Connecting to ${widget.displayName}…',
-                message:
-                    'Starting the pairing session. If the TV shows a pairing '
-                    'prompt, accept it.',
+            child: AnimatedSwitcher(
+              duration: AppMotion.emphasized,
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              transitionBuilder: (child, animation) => FadeTransition(
+                opacity: animation,
+                child: ScaleTransition(
+                  scale: Tween(begin: 0.985, end: 1.0).animate(animation),
+                  child: child,
+                ),
               ),
-              _PairingPhase.verifying => const _PairingProgress(
-                title: 'Verifying code…',
+              child: KeyedSubtree(
+                key: ValueKey(_phase),
+                child: switch (_phase) {
+                  _PairingPhase.connecting => _PairingProgress(
+                    title: 'Connecting to ${widget.displayName}…',
+                    message:
+                        'Starting the pairing session. If the TV shows a '
+                        'pairing prompt, accept it.',
+                  ),
+                  _PairingPhase.verifying => const _PairingProgress(
+                    title: 'Verifying code…',
+                  ),
+                  _PairingPhase.awaitingCode => _buildCodeEntry(colors),
+                  _PairingPhase.failed => _buildFailure(colors),
+                },
               ),
-              _PairingPhase.awaitingCode => _buildCodeEntry(colors),
-              _PairingPhase.failed => _buildFailure(colors),
-            },
+            ),
           ),
         ),
       ),

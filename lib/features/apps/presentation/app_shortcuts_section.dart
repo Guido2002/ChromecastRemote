@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../shared/presentation/adaptive_layout.dart';
+import '../../../shared/presentation/app_motion.dart';
 import '../app_shortcut_store.dart';
 import '../tv_app.dart';
 
@@ -32,6 +35,8 @@ class AppShortcutsSection extends StatefulWidget {
 
 class _AppShortcutsSectionState extends State<AppShortcutsSection> {
   List<TvApp> _shortcuts = const [];
+  String? _launchingId;
+  Timer? _launchFeedbackTimer;
 
   @override
   void initState() {
@@ -42,6 +47,22 @@ class _AppShortcutsSectionState extends State<AppShortcutsSection> {
   Future<void> _reload() async {
     final shortcuts = await widget.store.loadShortcuts();
     if (mounted) setState(() => _shortcuts = shortcuts);
+  }
+
+  void _launch(TvApp app) {
+    HapticFeedback.lightImpact();
+    setState(() => _launchingId = app.id);
+    widget.onLaunch(app);
+    _launchFeedbackTimer?.cancel();
+    _launchFeedbackTimer = Timer(const Duration(milliseconds: 900), () {
+      if (mounted) setState(() => _launchingId = null);
+    });
+  }
+
+  @override
+  void dispose() {
+    _launchFeedbackTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _manage() async {
@@ -108,10 +129,8 @@ class _AppShortcutsSectionState extends State<AppShortcutsSection> {
                       enabled: widget.enabled,
                       active: isActive,
                       tablet: tablet,
-                      onTap: () {
-                        HapticFeedback.lightImpact();
-                        widget.onLaunch(app);
-                      },
+                      launchPending: _launchingId == app.id,
+                      onTap: () => _launch(app),
                     );
                   },
                 ),
@@ -127,6 +146,7 @@ class _AppShortcutButton extends StatelessWidget {
     required this.enabled,
     required this.active,
     required this.tablet,
+    required this.launchPending,
     required this.onTap,
   });
 
@@ -134,54 +154,83 @@ class _AppShortcutButton extends StatelessWidget {
   final bool enabled;
   final bool active;
   final bool tablet;
+  final bool launchPending;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     return Tooltip(
-      message: active ? '${app.name} (active on TV)' : app.name,
-      child: InkWell(
-        onTap: enabled ? onTap : null,
-        borderRadius: BorderRadius.circular(18),
-        child: Container(
-          width: tablet ? 88 : 72,
-          decoration: BoxDecoration(
-            color: const Color(0xFF2F3133),
-            borderRadius: BorderRadius.circular(18),
-            border: active
-                ? Border.all(color: colors.secondary, width: 1.5)
-                : null,
+      message: launchPending
+          ? 'Opening ${app.name}…'
+          : active
+          ? '${app.name} (active on TV)'
+          : app.name,
+      child: AnimatedScale(
+        scale: launchPending ? 0.96 : 1,
+        duration: AppMotion.quick,
+        curve: Curves.easeOutCubic,
+        child: InkWell(
+          onTap: enabled ? onTap : null,
+          borderRadius: BorderRadius.circular(18),
+          overlayColor: WidgetStatePropertyAll(
+            colors.primary.withValues(alpha: 0.1),
           ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              CircleAvatar(
-                radius: tablet ? 20 : 17,
-                backgroundColor: colors.primary.withValues(alpha: 0.16),
-                child: Text(
-                  app.name.characters.first.toUpperCase(),
-                  style: TextStyle(
-                    color: colors.primary,
-                    fontWeight: FontWeight.w700,
+          child: AnimatedContainer(
+            width: tablet ? 88 : 72,
+            duration: AppMotion.standard,
+            curve: Curves.easeOutCubic,
+            decoration: BoxDecoration(
+              color: active
+                  ? colors.primaryContainer
+                  : colors.surfaceContainerHigh,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: active ? colors.primary : colors.outlineVariant,
+                width: active ? 1.5 : 1,
+              ),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                AnimatedSwitcher(
+                  duration: AppMotion.standard,
+                  child: launchPending
+                      ? Icon(
+                          Icons.check_rounded,
+                          key: const ValueKey('sent'),
+                          color: colors.secondary,
+                          size: tablet ? 30 : 26,
+                        )
+                      : CircleAvatar(
+                          key: const ValueKey('initial'),
+                          radius: tablet ? 20 : 17,
+                          backgroundColor: colors.primaryContainer,
+                          child: Text(
+                            app.name.characters.first.toUpperCase(),
+                            style: TextStyle(
+                              color: colors.onPrimaryContainer,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                ),
+                const SizedBox(height: 6),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Text(
+                    app.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: enabled
+                          ? colors.onSurface
+                          : colors.onSurface.withValues(alpha: 0.38),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 6),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: Text(
-                  app.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: enabled
-                        ? const Color(0xFFE3E5E8)
-                        : const Color(0xFFE3E5E8).withValues(alpha: 0.4),
-                  ),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

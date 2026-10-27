@@ -2,7 +2,10 @@ import 'dart:convert';
 
 import 'package:chromecast_remote/core/storage/secure_store.dart';
 import 'package:chromecast_remote/features/apps/app_shortcut_store.dart';
+import 'package:chromecast_remote/features/apps/presentation/app_shortcuts_section.dart';
 import 'package:chromecast_remote/features/apps/tv_app.dart';
+import 'package:chromecast_remote/shared/presentation/app_theme.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -211,5 +214,37 @@ void main() {
       final ids = await store.loadSelectedIds();
       expect(ids, AppShortcutStore.defaultIds);
     });
+  });
+
+  testWidgets('launching a shortcut gives immediate visual confirmation', (
+    tester,
+  ) async {
+    final store = AppShortcutStore(store: InMemorySecureStore());
+    TvApp? launchedApp;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildAppTheme(),
+        home: Scaffold(
+          body: AppShortcutsSection(
+            store: store,
+            enabled: true,
+            activePackage: null,
+            onLaunch: (app) => launchedApp = app,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Netflix'));
+    await tester.pump();
+
+    expect(launchedApp?.id, 'netflix');
+    expect(find.byIcon(Icons.check_rounded), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+    expect(find.byIcon(Icons.check_rounded), findsNothing);
   });
 }

@@ -25,12 +25,9 @@ class DirectionalPad extends StatelessWidget {
   final ValueChanged<String>? onDirectionLongPressEnd;
   final double maxDiameter;
 
-  static const _ringColor = Color(0xFF2F3133);
-  static const _centerColor = Color(0xFF565B60);
-  static const _iconColor = Color(0xFF9DA1A5);
-
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
     return LayoutBuilder(
       builder: (context, constraints) {
         final available = (constraints.maxWidth - 16).clamp(0.0, maxDiameter);
@@ -44,9 +41,10 @@ class DirectionalPad extends StatelessWidget {
             children: [
               // Outer ring.
               Container(
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: _ringColor,
+                  color: colors.surfaceContainerHigh,
+                  border: Border.all(color: colors.outlineVariant),
                 ),
               ),
               _PadRegion(
@@ -110,11 +108,14 @@ class DirectionalPad extends StatelessWidget {
                 dimension: diameter * 0.42,
                 child: Material(
                   color: enabled
-                      ? _centerColor
-                      : _centerColor.withValues(alpha: 0.5),
+                      ? colors.primaryContainer
+                      : colors.surfaceContainerHighest.withValues(alpha: 0.5),
                   shape: const CircleBorder(),
                   child: InkWell(
                     customBorder: const CircleBorder(),
+                    overlayColor: WidgetStatePropertyAll(
+                      colors.primary.withValues(alpha: 0.12),
+                    ),
                     onTap: enabled
                         ? () {
                             HapticFeedback.lightImpact();
@@ -156,6 +157,7 @@ class _PadRegion extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
     return Align(
       alignment: alignment,
       child: Padding(
@@ -180,11 +182,12 @@ class _PadRegion extends StatelessWidget {
                 : null,
             icon: Icon(icon),
             iconSize: 44,
-            color: DirectionalPad._iconColor,
-            disabledColor: DirectionalPad._iconColor.withValues(alpha: 0.35),
+            color: colors.onSurfaceVariant,
+            disabledColor: colors.onSurfaceVariant.withValues(alpha: 0.35),
             style: IconButton.styleFrom(
               fixedSize: const Size(72, 72),
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              overlayColor: colors.primary.withValues(alpha: 0.12),
             ),
           ),
         ),

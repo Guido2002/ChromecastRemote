@@ -26,6 +26,8 @@ in one list, labelled by the protocol they support.
 - **Dark interface** — Simple remote layout inspired by physical TV remotes.
 - **Phone and tablet layouts** — Compact phone controls and purpose-built
   tablet layouts with two-column remotes, larger targets and bounded content.
+- **Accessible, state-driven interface** — Semantic status colors, clear
+  recovery actions, immediate command feedback and reduced-motion support.
 
 Some controls depend on the connected device and the application currently running on the TV.
 
