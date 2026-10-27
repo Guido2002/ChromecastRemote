@@ -9,13 +9,17 @@ class AppDetailScreen extends StatefulWidget {
   const AppDetailScreen({
     required this.app,
     required this.store,
-    required this.onOpenOnTv,
+    required this.onChooseDevice,
+    this.connectedDeviceName,
+    this.onLaunchApp,
     super.key,
   });
 
   final TvApp app;
   final AppShortcutStore store;
-  final VoidCallback onOpenOnTv;
+  final VoidCallback onChooseDevice;
+  final String? connectedDeviceName;
+  final Future<bool> Function(TvApp app)? onLaunchApp;
 
   @override
   State<AppDetailScreen> createState() => _AppDetailScreenState();
@@ -23,6 +27,7 @@ class AppDetailScreen extends StatefulWidget {
 
 class _AppDetailScreenState extends State<AppDetailScreen> {
   bool? _favorite;
+  bool _launching = false;
 
   @override
   void initState() {
@@ -43,9 +48,33 @@ class _AppDetailScreenState extends State<AppDetailScreen> {
     await widget.store.saveSelectedIds(selected);
   }
 
-  void _openOnTv() {
-    Navigator.of(context).pop();
-    widget.onOpenOnTv();
+  Future<void> _openOnTv() async {
+    final launch = widget.onLaunchApp;
+    if (launch == null || widget.connectedDeviceName == null) {
+      Navigator.of(context).pop();
+      widget.onChooseDevice();
+      return;
+    }
+    setState(() => _launching = true);
+    var launched = false;
+    try {
+      launched = await launch(widget.app);
+    } catch (_) {
+      launched = false;
+    }
+    if (!mounted) return;
+    setState(() => _launching = false);
+    if (launched) {
+      Navigator.of(context).pop();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Could not open ${widget.app.name}. Reconnect to your TV and try again.',
+          ),
+        ),
+      );
+    }
   }
 
   @override
@@ -95,9 +124,18 @@ class _AppDetailScreenState extends State<AppDetailScreen> {
                 ),
                 const SizedBox(height: 24),
                 FilledButton.icon(
-                  onPressed: _openOnTv,
-                  icon: const Icon(Icons.play_arrow_rounded),
-                  label: const Text('Open on TV'),
+                  onPressed: _launching ? null : _openOnTv,
+                  icon: _launching
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.play_arrow_rounded),
+                  label: Text(
+                    widget.connectedDeviceName == null
+                        ? 'Choose a TV'
+                        : 'Open on ${widget.connectedDeviceName}',
+                  ),
                 ),
                 const SizedBox(height: 12),
                 OutlinedButton.icon(

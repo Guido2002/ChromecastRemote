@@ -46,6 +46,20 @@ void main() {
     expect(devices.single.lastHost, '192.168.1.99');
   });
 
+  test('persists renamed devices and their last connection time', () async {
+    final connectedAt = DateTime.utc(2026, 10, 27, 12, 30);
+    await store.save(
+      device.copyWith(
+        displayName: 'Living Room TV',
+        lastConnectedAt: connectedAt,
+      ),
+    );
+
+    final loaded = (await store.loadPairedDevices()).single;
+    expect(loaded.displayName, 'Living Room TV');
+    expect(loaded.lastConnectedAt, connectedAt);
+  });
+
   test('remove deletes only the matching device', () async {
     await store.save(device);
     await store.save(
@@ -78,5 +92,14 @@ void main() {
     final last = await store.loadLastDevice();
     expect(last?.id, 'SHIELD');
     expect(last?.protocol, 'androidTvRemote');
+  });
+
+  test('forgetting the last used device clears auto reconnect', () async {
+    await store.save(device);
+    await store.saveLastDevice(id: 'SHIELD', protocol: 'androidTvRemote');
+
+    await store.remove('SHIELD');
+
+    expect(await store.loadLastDevice(), isNull);
   });
 }

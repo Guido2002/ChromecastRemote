@@ -42,7 +42,7 @@ class AndroidTvRemoteController implements RemoteController {
     _client.onDisconnected = _onDropped;
   }
 
-  final PairedAndroidTv pairedDevice;
+  PairedAndroidTv pairedDevice;
   final PairedDeviceStore store;
   final AndroidTvRemoteClient _client;
 
@@ -54,6 +54,10 @@ class AndroidTvRemoteController implements RemoteController {
   bool _userDisconnected = false;
 
   AndroidTvRemoteClient get client => _client;
+
+  void updatePairedDevice(PairedAndroidTv device) {
+    if (device.serviceName == pairedDevice.serviceName) pairedDevice = device;
+  }
 
   @override
   String get deviceName => pairedDevice.displayName;

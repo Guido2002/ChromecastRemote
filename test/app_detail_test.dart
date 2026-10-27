@@ -19,7 +19,13 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: buildAppTheme(),
-        home: AppDetailScreen(app: netflix, store: store, onOpenOnTv: () {}),
+        home: AppDetailScreen(
+          app: netflix,
+          store: store,
+          connectedDeviceName: 'Living Room TV',
+          onLaunchApp: (_) async => true,
+          onChooseDevice: () {},
+        ),
       ),
     );
     await tester.pumpAndSettle();
@@ -27,7 +33,7 @@ void main() {
     expect(find.text('Netflix'), findsOneWidget);
     expect(find.text('Direct app link'), findsOneWidget);
     expect(find.text('com.netflix.ninja'), findsOneWidget);
-    expect(find.text('Open on TV'), findsOneWidget);
+    expect(find.text('Open on Living Room TV'), findsOneWidget);
 
     await tester.tap(find.text('Remove from remote shortcuts'));
     await tester.pumpAndSettle();

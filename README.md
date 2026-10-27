@@ -35,6 +35,10 @@ in one list, labelled by the protocol they support.
 - **Now Playing and app details** — Foreground app status and artwork on
   Android TV, real Cast metadata/artwork when available, plus detailed app
   pages with launch method and persistent remote favorites.
+- **Persistent TV connection** — Quietly reconnects to the last Android TV and
+  keeps that secure session available across Devices, Remote and Apps.
+- **Saved TV management** — Rename or forget paired TVs, see honest live and
+  last-connected status, and launch apps immediately from their detail page.
 
 Some controls depend on the connected device and the application currently running on the TV.
 

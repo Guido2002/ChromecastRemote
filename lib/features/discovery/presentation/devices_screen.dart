@@ -8,11 +8,12 @@ import '../../../shared/presentation/adaptive_layout.dart';
 import '../../../shared/presentation/app_motion.dart';
 import '../../../shared/models/discovered_device.dart';
 import '../../apps/presentation/app_library_view.dart';
+import '../../apps/tv_app.dart';
 import '../../pairing/paired_device_store.dart';
 import '../../pairing/presentation/pairing_screen.dart';
-import '../../remote/android_tv_remote_controller.dart';
 import '../../remote/presentation/android_tv_remote_screen.dart';
 import '../../remote/presentation/cast_remote_screen.dart';
+import '../../remote/remote_controller.dart';
 import '../../settings/presentation/settings_screen.dart';
 import '../../update/presentation/update_actions.dart';
 
@@ -28,6 +29,7 @@ class DevicesScreen extends StatefulWidget {
 class _DevicesScreenState extends State<DevicesScreen> {
   final _services = AppServices.instance;
   StreamSubscription<List<DiscoveredDevice>>? _subscription;
+  StreamSubscription<RemoteConnectionState>? _connectionSubscription;
   List<DiscoveredDevice> _devices = const [];
   List<PairedAndroidTv> _pairedDevices = const [];
   bool _scanning = false;
@@ -36,12 +38,23 @@ class _DevicesScreenState extends State<DevicesScreen> {
   String? _openingDeviceId;
   String? _error;
   int _sectionIndex = 0;
+  RemoteConnectionState _connectionState = RemoteConnectionState.disconnected;
 
   @override
   void initState() {
     super.initState();
     _subscription = _services.discovery.devices.listen((devices) {
       if (mounted) setState(() => _devices = devices);
+    });
+    _connectionState = _services.androidTvConnection.state;
+    _connectionSubscription = _services.androidTvConnection.changes.listen((
+      state,
+    ) {
+      if (!mounted) return;
+      setState(() => _connectionState = state);
+      if (state == RemoteConnectionState.connected) {
+        unawaited(_loadPairedDevices());
+      }
     });
     unawaited(_startScan());
     unawaited(_loadPairedDevices());
@@ -53,8 +66,9 @@ class _DevicesScreenState extends State<DevicesScreen> {
     });
   }
 
-  /// Reconnects to the last used Google TV once per app launch. Failures are
-  /// silent here; the user can still pick the device manually from the list.
+  /// Reconnects to the last used Google TV once per app launch while keeping
+  /// the user on the home screen. The shared session remains usable by every
+  /// tab until a different TV is selected or the device is forgotten.
   Future<void> _reconnectToLastDevice() async {
     if (_autoReconnectAttempted) return;
     _autoReconnectAttempted = true;
@@ -63,9 +77,12 @@ class _DevicesScreenState extends State<DevicesScreen> {
       if (last == null || last.protocol != 'androidTvRemote') return;
       final paired = await _services.pairedDevices.findByServiceName(last.id);
       if (paired == null || !mounted) return;
-      await _openPairedAndroidTv(paired);
+      if (mounted) setState(() => _openingDeviceId = paired.serviceName);
+      await _services.androidTvConnection.connect(paired);
     } catch (_) {
       // Auto-reconnect is best-effort; discovery remains available.
+    } finally {
+      if (mounted) setState(() => _openingDeviceId = null);
     }
   }
 
@@ -103,6 +120,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
   @override
   void dispose() {
     _subscription?.cancel();
+    _connectionSubscription?.cancel();
     unawaited(_services.discovery.stop());
     super.dispose();
   }
@@ -157,23 +175,116 @@ class _DevicesScreenState extends State<DevicesScreen> {
   }
 
   Future<void> _openPairedAndroidTv(PairedAndroidTv pairedDevice) async {
-    final controller = AndroidTvRemoteController(
-      pairedDevice: pairedDevice,
-      certificates: _services.certificates,
-      store: _services.pairedDevices,
+    final controller = await _services.androidTvConnection.connect(
+      pairedDevice,
     );
-    await _services.pairedDevices.saveLastDevice(
-      id: pairedDevice.serviceName,
-      protocol: 'androidTvRemote',
-    );
+    if (controller.connectionState != RemoteConnectionState.connected) {
+      _showMessage(
+        controller.lastError ??
+            'Could not connect to ${pairedDevice.displayName}.',
+      );
+      return;
+    }
     if (!mounted) return;
-    await Navigator.of(context).push(
+    final result = await Navigator.of(context).push<String>(
       MaterialPageRoute(
         builder: (_) => AndroidTvRemoteScreen(controller: controller),
       ),
     );
-    await controller.dispose();
+    if (result == 'forget') {
+      await _services.androidTvConnection.forget(pairedDevice);
+    }
     await _loadPairedDevices();
+  }
+
+  Future<bool> _launchApp(TvApp app) async {
+    final controller = _services.androidTvConnection.controller;
+    if (controller == null ||
+        controller.connectionState != RemoteConnectionState.connected ||
+        !controller.capabilities.contains(RemoteCapability.appLaunch)) {
+      return false;
+    }
+    controller.launchAppLink(app.launchUrl);
+
+    if (app.requiresStoreOpenConfirmation) {
+      const playStorePackage = 'com.android.vending';
+      if (controller.currentApp != playStorePackage) {
+        try {
+          await controller.currentAppUpdates
+              .firstWhere((package) => package == playStorePackage)
+              .timeout(const Duration(seconds: 3));
+        } on TimeoutException {
+          return false;
+        }
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 650));
+      if (controller.connectionState != RemoteConnectionState.connected) {
+        return false;
+      }
+      await controller.sendCommand(RemoteCommand.select);
+    }
+
+    _showMessage('Opening ${app.name} on ${controller.deviceName}');
+    return true;
+  }
+
+  Future<void> _renameSavedDevice(PairedAndroidTv device) async {
+    final nameController = TextEditingController(text: device.displayName);
+    final name = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Rename TV'),
+        content: TextField(
+          controller: nameController,
+          autofocus: true,
+          maxLength: 40,
+          textCapitalization: TextCapitalization.words,
+          decoration: const InputDecoration(labelText: 'TV name'),
+          onSubmitted: (value) => Navigator.of(context).pop(value.trim()),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () =>
+                Navigator.of(context).pop(nameController.text.trim()),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    nameController.dispose();
+    if (name == null || name.isEmpty || name == device.displayName) return;
+    await _services.androidTvConnection.rename(device, name);
+    await _loadPairedDevices();
+  }
+
+  Future<void> _forgetSavedDevice(PairedAndroidTv device) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Forget this TV?'),
+        content: Text(
+          'Remove ${device.displayName} and its trusted pairing? You will need to pair again.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Forget'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await _services.androidTvConnection.forget(device);
+    await _loadPairedDevices();
+    _showMessage('${device.displayName} was forgotten');
   }
 
   Future<void> _openSavedDevice(PairedAndroidTv device) async {
@@ -243,7 +354,11 @@ class _DevicesScreenState extends State<DevicesScreen> {
             tablet: true,
             busy: _openingDeviceId == device.serviceName,
             enabled: _openingDeviceId == null,
+            active: _services.androidTvConnection.isActive(device.serviceName),
+            connectionState: _connectionState,
             onTap: () => _openSavedDevice(device),
+            onRename: () => _renameSavedDevice(device),
+            onForget: () => _forgetSavedDevice(device),
           );
         },
       );
@@ -259,7 +374,11 @@ class _DevicesScreenState extends State<DevicesScreen> {
           tablet: false,
           busy: _openingDeviceId == device.serviceName,
           enabled: _openingDeviceId == null,
+          active: _services.androidTvConnection.isActive(device.serviceName),
+          connectionState: _connectionState,
           onTap: () => _openSavedDevice(device),
+          onRename: () => _renameSavedDevice(device),
+          onForget: () => _forgetSavedDevice(device),
         );
       },
     );
@@ -299,11 +418,24 @@ class _DevicesScreenState extends State<DevicesScreen> {
             1 => _RemoteLanding(
               devices: _pairedDevices,
               openingDeviceId: _openingDeviceId,
+              activeServiceName: _services
+                  .androidTvConnection
+                  .controller
+                  ?.pairedDevice
+                  .serviceName,
+              connectionState: _connectionState,
               onOpen: _openSavedDevice,
               onChooseDevice: () => setState(() => _sectionIndex = 0),
+              onRename: _renameSavedDevice,
+              onForget: _forgetSavedDevice,
             ),
             2 => AppLibraryView(
               store: _services.appShortcuts,
+              connectedDeviceName:
+                  _connectionState == RemoteConnectionState.connected
+                  ? _services.androidTvConnection.controller?.deviceName
+                  : null,
+              onLaunchApp: _launchApp,
               onChooseDevice: () => setState(() => _sectionIndex = 0),
             ),
             3 => const SettingsView(),
@@ -486,14 +618,22 @@ class _RemoteLanding extends StatelessWidget {
   const _RemoteLanding({
     required this.devices,
     required this.openingDeviceId,
+    required this.activeServiceName,
+    required this.connectionState,
     required this.onOpen,
     required this.onChooseDevice,
+    required this.onRename,
+    required this.onForget,
   });
 
   final List<PairedAndroidTv> devices;
   final String? openingDeviceId;
+  final String? activeServiceName;
+  final RemoteConnectionState connectionState;
   final ValueChanged<PairedAndroidTv> onOpen;
   final VoidCallback onChooseDevice;
+  final ValueChanged<PairedAndroidTv> onRename;
+  final ValueChanged<PairedAndroidTv> onForget;
 
   @override
   Widget build(BuildContext context) {
@@ -519,7 +659,11 @@ class _RemoteLanding extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              devices.isEmpty ? 'No remote connected' : 'Choose a saved TV',
+              devices.isEmpty
+                  ? 'No remote connected'
+                  : connectionState == RemoteConnectionState.connected
+                  ? 'Your TV is connected'
+                  : 'Choose a saved TV',
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 8),
@@ -551,7 +695,11 @@ class _RemoteLanding extends StatelessWidget {
                       tablet: false,
                       busy: openingDeviceId == device.serviceName,
                       enabled: openingDeviceId == null,
+                      active: activeServiceName == device.serviceName,
+                      connectionState: connectionState,
                       onTap: () => onOpen(device),
+                      onRename: () => onRename(device),
+                      onForget: () => onForget(device),
                     );
                   },
                 ),
@@ -653,6 +801,10 @@ class _SavedDeviceTile extends StatelessWidget {
     required this.tablet,
     required this.busy,
     required this.enabled,
+    required this.active,
+    required this.connectionState,
+    required this.onRename,
+    required this.onForget,
   });
 
   final PairedAndroidTv device;
@@ -660,10 +812,25 @@ class _SavedDeviceTile extends StatelessWidget {
   final bool tablet;
   final bool busy;
   final bool enabled;
+  final bool active;
+  final RemoteConnectionState connectionState;
+  final VoidCallback onRename;
+  final VoidCallback onForget;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final status = active
+        ? switch (connectionState) {
+            RemoteConnectionState.connected => 'Connected now',
+            RemoteConnectionState.connecting => 'Connecting…',
+            RemoteConnectionState.reconnecting => 'Reconnecting…',
+            RemoteConnectionState.error => 'Connection failed',
+            _ => 'Saved · offline',
+          }
+        : device.lastConnectedAt == null
+        ? 'Paired · not connected yet'
+        : 'Last connected ${_relativeTime(device.lastConnectedAt!)}';
     return Card(
       clipBehavior: Clip.antiAlias,
       child: ListTile(
@@ -692,8 +859,8 @@ class _SavedDeviceTile extends StatelessWidget {
         subtitle: Padding(
           padding: const EdgeInsets.only(top: 3),
           child: Text(
-            'Google TV · ${device.lastHost}',
-            maxLines: 1,
+            '$status\n${device.lastHost}',
+            maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: Theme.of(
               context,
@@ -708,21 +875,56 @@ class _SavedDeviceTile extends StatelessWidget {
                   dimension: 20,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : FilledButton(
-                  key: const ValueKey('open-saved'),
-                  onPressed: enabled ? onTap : null,
-                  style: FilledButton.styleFrom(
-                    minimumSize: Size(tablet ? 88 : 76, 38),
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  child: const Text('Open'),
+              : Row(
+                  key: const ValueKey('saved-actions'),
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    PopupMenuButton<String>(
+                      enabled: enabled,
+                      tooltip: 'Manage saved TV',
+                      onSelected: (value) {
+                        if (value == 'rename') onRename();
+                        if (value == 'forget') onForget();
+                      },
+                      itemBuilder: (_) => const [
+                        PopupMenuItem(
+                          value: 'rename',
+                          child: ListTile(
+                            leading: Icon(Icons.edit_outlined),
+                            title: Text('Rename'),
+                          ),
+                        ),
+                        PopupMenuItem(
+                          value: 'forget',
+                          child: ListTile(
+                            leading: Icon(Icons.delete_outline_rounded),
+                            title: Text('Forget'),
+                          ),
+                        ),
+                      ],
+                    ),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      color: enabled
+                          ? colors.onSurfaceVariant
+                          : colors.onSurface.withValues(alpha: 0.38),
+                    ),
+                  ],
                 ),
         ),
         onTap: enabled ? onTap : null,
       ),
     );
   }
+}
+
+String _relativeTime(DateTime timestamp) {
+  final difference = DateTime.now().toUtc().difference(timestamp.toUtc());
+  if (difference.inMinutes < 1) return 'just now';
+  if (difference.inHours < 1) return '${difference.inMinutes}m ago';
+  if (difference.inDays < 1) return '${difference.inHours}h ago';
+  if (difference.inDays < 7) return '${difference.inDays}d ago';
+  return '${timestamp.day}/${timestamp.month}/${timestamp.year}';
 }
 
 class _EmptySavedDevices extends StatelessWidget {

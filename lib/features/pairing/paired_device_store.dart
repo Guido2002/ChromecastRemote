@@ -10,6 +10,7 @@ class PairedAndroidTv {
     required this.lastHost,
     required this.serverCertificateSha256,
     required this.pairedAt,
+    this.lastConnectedAt,
   });
 
   /// mDNS service instance name; used as the identity key.
@@ -26,14 +27,22 @@ class PairedAndroidTv {
   final String serverCertificateSha256;
 
   final DateTime pairedAt;
+  final DateTime? lastConnectedAt;
 
-  PairedAndroidTv copyWithHost(String host) => PairedAndroidTv(
-        serviceName: serviceName,
-        displayName: displayName,
-        lastHost: host,
-        serverCertificateSha256: serverCertificateSha256,
-        pairedAt: pairedAt,
-      );
+  PairedAndroidTv copyWith({
+    String? displayName,
+    String? lastHost,
+    DateTime? lastConnectedAt,
+  }) => PairedAndroidTv(
+    serviceName: serviceName,
+    displayName: displayName ?? this.displayName,
+    lastHost: lastHost ?? this.lastHost,
+    serverCertificateSha256: serverCertificateSha256,
+    pairedAt: pairedAt,
+    lastConnectedAt: lastConnectedAt ?? this.lastConnectedAt,
+  );
+
+  PairedAndroidTv copyWithHost(String host) => copyWith(lastHost: host);
 
   factory PairedAndroidTv.fromJson(Map<String, dynamic> json) =>
       PairedAndroidTv(
@@ -43,16 +52,21 @@ class PairedAndroidTv {
         serverCertificateSha256: json['serverCertificateSha256'] as String,
         pairedAt:
             DateTime.tryParse(json['pairedAt'] as String? ?? '') ??
-                DateTime.fromMillisecondsSinceEpoch(0),
+            DateTime.fromMillisecondsSinceEpoch(0),
+        lastConnectedAt: DateTime.tryParse(
+          json['lastConnectedAt'] as String? ?? '',
+        ),
       );
 
   Map<String, dynamic> toJson() => {
-        'serviceName': serviceName,
-        'displayName': displayName,
-        'lastHost': lastHost,
-        'serverCertificateSha256': serverCertificateSha256,
-        'pairedAt': pairedAt.toIso8601String(),
-      };
+    'serviceName': serviceName,
+    'displayName': displayName,
+    'lastHost': lastHost,
+    'serverCertificateSha256': serverCertificateSha256,
+    'pairedAt': pairedAt.toIso8601String(),
+    if (lastConnectedAt != null)
+      'lastConnectedAt': lastConnectedAt!.toIso8601String(),
+  };
 }
 
 /// Persists paired Android TV devices and the last-used device in secure
@@ -91,20 +105,25 @@ class PairedDeviceStore {
     final devices = await loadPairedDevices();
     devices.removeWhere((d) => d.serviceName == device.serviceName);
     devices.add(device);
-    await store.write(_pairedTvsKey, jsonEncode(devices.map((d) => d.toJson()).toList()));
+    await store.write(
+      _pairedTvsKey,
+      jsonEncode(devices.map((d) => d.toJson()).toList()),
+    );
   }
 
   Future<void> remove(String serviceName) async {
     final devices = await loadPairedDevices();
     devices.removeWhere((d) => d.serviceName == serviceName);
-    await store.write(_pairedTvsKey, jsonEncode(devices.map((d) => d.toJson()).toList()));
+    await store.write(
+      _pairedTvsKey,
+      jsonEncode(devices.map((d) => d.toJson()).toList()),
+    );
+    final last = await loadLastDevice();
+    if (last?.id == serviceName) await store.delete(_lastDeviceKey);
   }
 
   /// Remembers which device to auto-reconnect to on the next launch.
-  Future<void> saveLastDevice({
-    required String id,
-    required String protocol,
-  }) =>
+  Future<void> saveLastDevice({required String id, required String protocol}) =>
       store.write(_lastDeviceKey, jsonEncode({'id': id, 'protocol': protocol}));
 
   Future<({String id, String protocol})?> loadLastDevice() async {

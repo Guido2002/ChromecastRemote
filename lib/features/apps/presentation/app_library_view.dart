@@ -10,11 +10,15 @@ class AppLibraryView extends StatefulWidget {
   const AppLibraryView({
     required this.store,
     required this.onChooseDevice,
+    this.connectedDeviceName,
+    this.onLaunchApp,
     super.key,
   });
 
   final AppShortcutStore store;
   final VoidCallback onChooseDevice;
+  final String? connectedDeviceName;
+  final Future<bool> Function(TvApp app)? onLaunchApp;
 
   @override
   State<AppLibraryView> createState() => _AppLibraryViewState();
@@ -49,7 +53,9 @@ class _AppLibraryViewState extends State<AppLibraryView> {
         builder: (_) => AppDetailScreen(
           app: app,
           store: widget.store,
-          onOpenOnTv: widget.onChooseDevice,
+          connectedDeviceName: widget.connectedDeviceName,
+          onLaunchApp: widget.onLaunchApp,
+          onChooseDevice: widget.onChooseDevice,
         ),
       ),
     );
@@ -133,15 +139,20 @@ class _AppLibraryViewState extends State<AppLibraryView> {
                 children: [
                   Icon(Icons.tv_rounded, color: colors.primary),
                   const SizedBox(width: 12),
-                  const Expanded(
+                  Expanded(
                     child: Text(
-                      'Choose a TV to launch apps. Stars control which shortcuts appear on the remote.',
+                      widget.connectedDeviceName == null
+                          ? 'Choose a TV to launch apps. Stars control which shortcuts appear on the remote.'
+                          : 'Connected to ${widget.connectedDeviceName}. Apps open immediately on your TV.',
                     ),
                   ),
-                  TextButton(
-                    onPressed: widget.onChooseDevice,
-                    child: const Text('Choose TV'),
-                  ),
+                  if (widget.connectedDeviceName == null)
+                    TextButton(
+                      onPressed: widget.onChooseDevice,
+                      child: const Text('Choose TV'),
+                    )
+                  else
+                    Icon(Icons.check_circle_rounded, color: colors.primary),
                 ],
               ),
             ),
