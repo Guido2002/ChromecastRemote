@@ -8,10 +8,13 @@ import '../../../core/protocol/android_tv/android_key_codes.dart';
 import '../../../shared/presentation/adaptive_layout.dart';
 import '../../../shared/presentation/app_motion.dart';
 import '../../apps/presentation/app_shortcuts_section.dart';
+import '../../apps/tv_app.dart';
 import '../../pairing/presentation/pairing_screen.dart';
 import '../android_tv_remote_controller.dart';
 import '../remote_controller.dart';
 import 'widgets/directional_pad.dart';
+
+const _playStorePackage = 'com.android.vending';
 
 /// The Google TV remote screen, modelled on the reference remote design:
 /// dark background, circular D-pad, round Back/Home/Assistant buttons and a
@@ -30,8 +33,11 @@ class _AndroidTvRemoteScreenState extends State<AndroidTvRemoteScreen> {
 
   StreamSubscription<RemoteConnectionState>? _stateSubscription;
   StreamSubscription<String>? _appSubscription;
+  Timer? _storeOpenTimer;
+  Timer? _storeLaunchExpiry;
   RemoteConnectionState _state = RemoteConnectionState.disconnected;
   String? _activePackage;
+  String? _pendingStoreLaunchPackage;
 
   @override
   void initState() {
@@ -43,6 +49,7 @@ class _AndroidTvRemoteScreenState extends State<AndroidTvRemoteScreen> {
     });
     _appSubscription = _controller.currentAppUpdates.listen((package) {
       if (mounted) setState(() => _activePackage = package);
+      _handleForegroundApp(package);
     });
     unawaited(_controller.connect());
   }
@@ -51,6 +58,8 @@ class _AndroidTvRemoteScreenState extends State<AndroidTvRemoteScreen> {
   void dispose() {
     _stateSubscription?.cancel();
     _appSubscription?.cancel();
+    _storeOpenTimer?.cancel();
+    _storeLaunchExpiry?.cancel();
     super.dispose();
   }
 
@@ -68,6 +77,56 @@ class _AndroidTvRemoteScreenState extends State<AndroidTvRemoteScreen> {
       'left' => RemoteCommand.left,
       _ => RemoteCommand.right,
     });
+  }
+
+  void _launchApp(TvApp app) {
+    _clearPendingStoreLaunch();
+    _controller.launchAppLink(app.launchUrl);
+    if (!app.requiresStoreOpenConfirmation) return;
+
+    _pendingStoreLaunchPackage = app.packageName;
+    _storeLaunchExpiry = Timer(
+      const Duration(seconds: 4),
+      _clearPendingStoreLaunch,
+    );
+
+    // If the Play Store was already foregrounded, its package may not emit a
+    // second update. Allow the NPO details page time to settle before Open.
+    if (_activePackage == _playStorePackage) {
+      _scheduleStoreOpenConfirmation(const Duration(milliseconds: 850));
+    }
+  }
+
+  void _handleForegroundApp(String package) {
+    final target = _pendingStoreLaunchPackage;
+    if (target == null) return;
+    if (package == target) {
+      _clearPendingStoreLaunch();
+    } else if (package == _playStorePackage) {
+      _scheduleStoreOpenConfirmation(const Duration(milliseconds: 550));
+    }
+  }
+
+  void _scheduleStoreOpenConfirmation(Duration delay) {
+    _storeOpenTimer?.cancel();
+    _storeOpenTimer = Timer(delay, () {
+      if (!mounted ||
+          !_connected ||
+          _pendingStoreLaunchPackage == null ||
+          _activePackage != _playStorePackage) {
+        return;
+      }
+      _clearPendingStoreLaunch();
+      unawaited(_controller.sendCommand(RemoteCommand.select));
+    });
+  }
+
+  void _clearPendingStoreLaunch() {
+    _storeOpenTimer?.cancel();
+    _storeOpenTimer = null;
+    _storeLaunchExpiry?.cancel();
+    _storeLaunchExpiry = null;
+    _pendingStoreLaunchPackage = null;
   }
 
   Future<void> _forgetDevice() async {
@@ -266,7 +325,7 @@ class _AndroidTvRemoteScreenState extends State<AndroidTvRemoteScreen> {
         enabled:
             _connected && capabilities.contains(RemoteCapability.appLaunch),
         activePackage: _activePackage,
-        onLaunch: (app) => _controller.launchAppLink(app.launchUrl),
+        onLaunch: _launchApp,
       );
 
   Widget _mediaControls(Set<RemoteCapability> capabilities) =>

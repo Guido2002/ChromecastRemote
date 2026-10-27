@@ -33,6 +33,12 @@ class TvApp {
   /// True for user-added entries.
   final bool custom;
 
+  /// Whether launching this shortcut requires the Android TV Play Store's
+  /// focused Open action to be confirmed. Keep this narrowly scoped to NPO:
+  /// its current TV manifest does not expose a deep link.
+  bool get requiresStoreOpenConfirmation =>
+      id == 'npo-start' && launchUrl.startsWith('market://launch?id=');
+
   factory TvApp.customEntry({required String name, required String target}) {
     final trimmed = target.trim();
     // Prefer the catalog's direct link for known packages. Explicit deep

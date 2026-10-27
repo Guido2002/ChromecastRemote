@@ -148,8 +148,9 @@ the release page opens in the browser instead.
   the Play Store. Known package names in custom shortcuts use the same links,
   including previously saved shortcuts. Apps without a verified deep link
   (currently NPO Start and unknown custom packages) retain the
-  `market://launch?id=<package>` fallback, which may require selecting Open
-  in the Play Store even when installed. Custom deep links are preserved.
+  `market://launch?id=<package>` fallback. For NPO Start, the remote
+  automatically confirms the Play Store's focused Open action; custom deep
+  links are preserved.
   Android TV Remote Protocol v2 cannot list installed apps, so shortcuts are
   chosen from a catalog or added manually.
 - Google TV remote connectivity relies on a protocol that is not provided as a stable public remote-control SDK.

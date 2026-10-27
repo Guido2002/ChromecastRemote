@@ -57,6 +57,22 @@ void main() {
         expect(names, contains(expected));
       }
     });
+
+    test('NPO Start automatically confirms its TV store launch fallback', () {
+      final npo = catalogApps.singleWhere((app) => app.id == 'npo-start');
+      expect(npo.launchUrl, 'market://launch?id=nl.uitzendinggemist');
+      expect(npo.requiresStoreOpenConfirmation, isTrue);
+      expect(
+        catalogApps.where((app) => app.id != 'npo-start'),
+        everyElement(
+          isA<TvApp>().having(
+            (app) => app.requiresStoreOpenConfirmation,
+            'requiresStoreOpenConfirmation',
+            isFalse,
+          ),
+        ),
+      );
+    });
   });
 
   group('TvApp.customEntry', () {
