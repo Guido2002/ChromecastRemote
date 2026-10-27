@@ -14,6 +14,7 @@ class DirectionalPad extends StatelessWidget {
     required this.onSelect,
     this.onDirectionLongPressStart,
     this.onDirectionLongPressEnd,
+    this.maxDiameter = 340,
     super.key,
   });
 
@@ -22,6 +23,7 @@ class DirectionalPad extends StatelessWidget {
   final VoidCallback onSelect;
   final ValueChanged<String>? onDirectionLongPressStart;
   final ValueChanged<String>? onDirectionLongPressEnd;
+  final double maxDiameter;
 
   static const _ringColor = Color(0xFF2F3133);
   static const _centerColor = Color(0xFF565B60);
@@ -31,8 +33,10 @@ class DirectionalPad extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final diameter =
-            (constraints.maxWidth - 16).clamp(240.0, 340.0).toDouble();
+        final available = (constraints.maxWidth - 16).clamp(0.0, maxDiameter);
+        final diameter = available < 240
+            ? available
+            : available.clamp(240.0, maxDiameter);
         return SizedBox.square(
           dimension: diameter,
           child: Stack(
@@ -105,7 +109,9 @@ class DirectionalPad extends StatelessWidget {
               SizedBox.square(
                 dimension: diameter * 0.42,
                 child: Material(
-                  color: enabled ? _centerColor : _centerColor.withValues(alpha: 0.5),
+                  color: enabled
+                      ? _centerColor
+                      : _centerColor.withValues(alpha: 0.5),
                   shape: const CircleBorder(),
                   child: InkWell(
                     customBorder: const CircleBorder(),
@@ -155,12 +161,15 @@ class _PadRegion extends StatelessWidget {
       child: Padding(
         padding: padding,
         child: GestureDetector(
-          onLongPressStart:
-              enabled && onLongPressStart != null ? (_) => onLongPressStart!() : null,
-          onLongPressEnd:
-              enabled && onLongPressEnd != null ? (_) => onLongPressEnd!() : null,
-          onLongPressCancel:
-              enabled && onLongPressEnd != null ? onLongPressEnd : null,
+          onLongPressStart: enabled && onLongPressStart != null
+              ? (_) => onLongPressStart!()
+              : null,
+          onLongPressEnd: enabled && onLongPressEnd != null
+              ? (_) => onLongPressEnd!()
+              : null,
+          onLongPressCancel: enabled && onLongPressEnd != null
+              ? onLongPressEnd
+              : null,
           child: IconButton(
             tooltip: semanticLabel,
             onPressed: enabled

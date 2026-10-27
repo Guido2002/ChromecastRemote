@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import '../../../core/app_services.dart';
 import '../../../core/protocol/android_tv/android_tv_pairing_client.dart';
 import '../../../core/protocol/android_tv/pairing_secret.dart';
+import '../../../shared/presentation/adaptive_layout.dart';
 import '../paired_device_store.dart';
 
 /// Guides the user through Android TV Remote Protocol v2 pairing:
@@ -86,8 +87,9 @@ class _PairingScreenState extends State<PairingScreen> {
         serviceName: widget.serviceName,
         displayName: widget.displayName,
         lastHost: widget.host,
-        serverCertificateSha256:
-            sha256.convert(result.serverCertificateDer).toString(),
+        serverCertificateSha256: sha256
+            .convert(result.serverCertificateDer)
+            .toString(),
         pairedAt: DateTime.now(),
       );
       await AppServices.instance.pairedDevices.save(paired);
@@ -129,20 +131,25 @@ class _PairingScreenState extends State<PairingScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Pair with TV')),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: switch (_phase) {
-            _PairingPhase.connecting => _PairingProgress(
+        child: AdaptiveContent(
+          maxWidth: 560,
+          alignment: Alignment.center,
+          child: Padding(
+            padding: EdgeInsets.all(AdaptiveLayout.isTablet(context) ? 40 : 24),
+            child: switch (_phase) {
+              _PairingPhase.connecting => _PairingProgress(
                 title: 'Connecting to ${widget.displayName}…',
                 message:
                     'Starting the pairing session. If the TV shows a pairing '
                     'prompt, accept it.',
               ),
-            _PairingPhase.verifying =>
-              const _PairingProgress(title: 'Verifying code…'),
-            _PairingPhase.awaitingCode => _buildCodeEntry(colors),
-            _PairingPhase.failed => _buildFailure(colors),
-          },
+              _PairingPhase.verifying => const _PairingProgress(
+                title: 'Verifying code…',
+              ),
+              _PairingPhase.awaitingCode => _buildCodeEntry(colors),
+              _PairingPhase.failed => _buildFailure(colors),
+            },
+          ),
         ),
       ),
     );
@@ -162,10 +169,9 @@ class _PairingScreenState extends State<PairingScreen> {
         const SizedBox(height: 8),
         Text(
           '${widget.displayName} shows a 6-character pairing code.',
-          style: Theme.of(context)
-              .textTheme
-              .bodyMedium
-              ?.copyWith(color: colors.onSurfaceVariant),
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(color: colors.onSurfaceVariant),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 24),
@@ -199,10 +205,7 @@ class _PairingScreenState extends State<PairingScreen> {
           ),
         ],
         const SizedBox(height: 24),
-        FilledButton(
-          onPressed: _submitCode,
-          child: const Text('Pair'),
-        ),
+        FilledButton(onPressed: _submitCode, child: const Text('Pair')),
       ],
     );
   }
@@ -226,10 +229,9 @@ class _PairingScreenState extends State<PairingScreen> {
         const SizedBox(height: 8),
         Text(
           _error ?? 'Unknown error',
-          style: Theme.of(context)
-              .textTheme
-              .bodyMedium
-              ?.copyWith(color: colors.onSurfaceVariant),
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(color: colors.onSurfaceVariant),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 24),
@@ -271,10 +273,9 @@ class _PairingProgress extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             message!,
-            style: Theme.of(context)
-                .textTheme
-                .bodyMedium
-                ?.copyWith(color: colors.onSurfaceVariant),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: colors.onSurfaceVariant),
             textAlign: TextAlign.center,
           ),
         ],

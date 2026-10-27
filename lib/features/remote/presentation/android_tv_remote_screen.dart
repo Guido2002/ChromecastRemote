@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../../../core/app_services.dart';
 import '../../../core/protocol/android_tv/android_key_codes.dart';
+import '../../../shared/presentation/adaptive_layout.dart';
 import '../../apps/presentation/app_shortcuts_section.dart';
 import '../../pairing/presentation/pairing_screen.dart';
 import '../android_tv_remote_controller.dart';
@@ -113,116 +114,36 @@ class _AndroidTvRemoteScreenState extends State<AndroidTvRemoteScreen> {
   @override
   Widget build(BuildContext context) {
     final capabilities = _controller.capabilities;
+    final tablet = AdaptiveLayout.isTablet(context);
 
     return Scaffold(
       body: SafeArea(
         child: Column(
           children: [
             _Header(
+              tablet: tablet,
               deviceName: _controller.deviceName,
               state: _state,
               error: _controller.lastError,
-              showPower: capabilities.contains(RemoteCapability.power) ||
-                  _connected,
+              showPower:
+                  capabilities.contains(RemoteCapability.power) || _connected,
               onClose: () => Navigator.of(context).pop(),
               onPower: () => _send(RemoteCommand.power),
               onForget: _forgetDevice,
               onRetry: () => unawaited(_controller.connect()),
-              onPairAgain:
-                  _state == RemoteConnectionState.error ? _pairAgain : null,
+              onPairAgain: _state == RemoteConnectionState.error
+                  ? _pairAgain
+                  : null,
             ),
             if (_state == RemoteConnectionState.reconnecting)
               const LinearProgressIndicator(minHeight: 2),
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Column(
-                  children: [
-                    const SizedBox(height: 12),
-                    Center(
-                      child: DirectionalPad(
-                        enabled: _connected,
-                        onDirection: _onDirection,
-                        onSelect: () => _send(RemoteCommand.select),
-                        onDirectionLongPressStart: (direction) =>
-                            _controller.startLongPress(_commandFor(direction)),
-                        onDirectionLongPressEnd: (direction) =>
-                            _controller.endLongPress(_commandFor(direction)),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        _RoundRemoteButton(
-                          tooltip: 'Back',
-                          icon: Icons.arrow_back_rounded,
-                          enabled: _connected,
-                          onPressed: () => _send(RemoteCommand.back),
-                        ),
-                        _RoundRemoteButton(
-                          tooltip: 'Home',
-                          icon: Icons.home_outlined,
-                          enabled: _connected,
-                          onPressed: () => _send(RemoteCommand.home),
-                        ),
-                        _RoundRemoteButton(
-                          tooltip: 'Assistant (where supported)',
-                          icon: Icons.mic_none_rounded,
-                          enabled: _connected,
-                          onPressed: () => _controller
-                              .sendRawKey(AndroidKeyCodes.search),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-                    AppShortcutsSection(
-                      store: AppServices.instance.appShortcuts,
-                      enabled: _connected &&
-                          capabilities.contains(RemoteCapability.appLaunch),
-                      activePackage: _activePackage,
-                      onLaunch: (app) =>
-                          _controller.launchAppLink(app.launchUrl),
-                    ),
-                    const SizedBox(height: 28),
-                    _MediaControlsSection(
-                      enabled: _connected &&
-                          capabilities.contains(RemoteCapability.mediaControl),
-                      onCommand: _send,
-                    ),
-                    const SizedBox(height: 28),
-                    Row(
-                      children: [
-                        _RoundRemoteButton(
-                          tooltip: 'Mute',
-                          icon: Icons.volume_off_outlined,
-                          enabled: _connected &&
-                              capabilities.contains(RemoteCapability.volume),
-                          onPressed: () => _send(RemoteCommand.mute),
-                          size: 56,
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: _VolumePill(
-                            enabled: _connected &&
-                                capabilities.contains(RemoteCapability.volume),
-                            onVolumeDown: () =>
-                                _send(RemoteCommand.volumeDown),
-                            onVolumeUp: () => _send(RemoteCommand.volumeUp),
-                            onVolumeDownLongStart: () => _controller
-                                .startLongPress(RemoteCommand.volumeDown),
-                            onVolumeDownLongEnd: () => _controller
-                                .endLongPress(RemoteCommand.volumeDown),
-                            onVolumeUpLongStart: () => _controller
-                                .startLongPress(RemoteCommand.volumeUp),
-                            onVolumeUpLongEnd: () => _controller
-                                .endLongPress(RemoteCommand.volumeUp),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-                  ],
+                padding: AdaptiveLayout.pagePadding(context),
+                child: AdaptiveContent(
+                  child: tablet
+                      ? _buildTabletControls(capabilities)
+                      : _buildPhoneControls(capabilities),
                 ),
               ),
             ),
@@ -232,12 +153,164 @@ class _AndroidTvRemoteScreenState extends State<AndroidTvRemoteScreen> {
     );
   }
 
+  Widget _buildPhoneControls(Set<RemoteCapability> capabilities) {
+    return Column(
+      children: [
+        _directionalPad(),
+        const SizedBox(height: 24),
+        _navigationButtons(),
+        const SizedBox(height: 24),
+        _appShortcuts(capabilities),
+        const SizedBox(height: 28),
+        _mediaControls(capabilities),
+        const SizedBox(height: 28),
+        _volumeControls(capabilities),
+        const SizedBox(height: 12),
+      ],
+    );
+  }
+
+  Widget _buildTabletControls(Set<RemoteCapability> capabilities) {
+    return Row(
+      key: const ValueKey('android-tv-tablet-layout'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          flex: 5,
+          child: TabletPanel(
+            child: Column(
+              children: [
+                _sectionHeading('NAVIGATION'),
+                const SizedBox(height: 18),
+                _directionalPad(maxDiameter: 370),
+                const SizedBox(height: 22),
+                _navigationButtons(),
+                const SizedBox(height: 26),
+                _sectionHeading('VOLUME'),
+                const SizedBox(height: 12),
+                _volumeControls(capabilities),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 24),
+        Expanded(
+          flex: 6,
+          child: Column(
+            children: [
+              TabletPanel(child: _appShortcuts(capabilities)),
+              const SizedBox(height: 24),
+              TabletPanel(child: _mediaControls(capabilities)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _sectionHeading(String text) => Align(
+    alignment: Alignment.centerLeft,
+    child: Text(
+      text,
+      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+        letterSpacing: 1.4,
+        fontWeight: FontWeight.w700,
+      ),
+    ),
+  );
+
+  Widget _directionalPad({double maxDiameter = 340}) => Center(
+    child: DirectionalPad(
+      enabled: _connected,
+      maxDiameter: maxDiameter,
+      onDirection: _onDirection,
+      onSelect: () => _send(RemoteCommand.select),
+      onDirectionLongPressStart: (direction) =>
+          _controller.startLongPress(_commandFor(direction)),
+      onDirectionLongPressEnd: (direction) =>
+          _controller.endLongPress(_commandFor(direction)),
+    ),
+  );
+
+  Widget _navigationButtons() => Row(
+    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+    children: [
+      _RoundRemoteButton(
+        tooltip: 'Back',
+        icon: Icons.arrow_back_rounded,
+        enabled: _connected,
+        onPressed: () => _send(RemoteCommand.back),
+      ),
+      _RoundRemoteButton(
+        tooltip: 'Home',
+        icon: Icons.home_outlined,
+        enabled: _connected,
+        onPressed: () => _send(RemoteCommand.home),
+      ),
+      _RoundRemoteButton(
+        tooltip: 'Assistant (where supported)',
+        icon: Icons.mic_none_rounded,
+        enabled: _connected,
+        onPressed: () => _controller.sendRawKey(AndroidKeyCodes.search),
+      ),
+    ],
+  );
+
+  Widget _appShortcuts(Set<RemoteCapability> capabilities) =>
+      AppShortcutsSection(
+        store: AppServices.instance.appShortcuts,
+        enabled:
+            _connected && capabilities.contains(RemoteCapability.appLaunch),
+        activePackage: _activePackage,
+        onLaunch: (app) => _controller.launchAppLink(app.launchUrl),
+      );
+
+  Widget _mediaControls(Set<RemoteCapability> capabilities) =>
+      _MediaControlsSection(
+        enabled:
+            _connected && capabilities.contains(RemoteCapability.mediaControl),
+        onCommand: _send,
+      );
+
+  Widget _volumeControls(Set<RemoteCapability> capabilities) {
+    final enabled =
+        _connected && capabilities.contains(RemoteCapability.volume);
+    return Row(
+      children: [
+        _RoundRemoteButton(
+          tooltip: 'Mute',
+          icon: Icons.volume_off_outlined,
+          enabled: enabled,
+          onPressed: () => _send(RemoteCommand.mute),
+          size: 56,
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: _VolumePill(
+            enabled: enabled,
+            onVolumeDown: () => _send(RemoteCommand.volumeDown),
+            onVolumeUp: () => _send(RemoteCommand.volumeUp),
+            onVolumeDownLongStart: () =>
+                _controller.startLongPress(RemoteCommand.volumeDown),
+            onVolumeDownLongEnd: () =>
+                _controller.endLongPress(RemoteCommand.volumeDown),
+            onVolumeUpLongStart: () =>
+                _controller.startLongPress(RemoteCommand.volumeUp),
+            onVolumeUpLongEnd: () =>
+                _controller.endLongPress(RemoteCommand.volumeUp),
+          ),
+        ),
+      ],
+    );
+  }
+
   RemoteCommand _commandFor(String direction) => switch (direction) {
-        'up' => RemoteCommand.up,
-        'down' => RemoteCommand.down,
-        'left' => RemoteCommand.left,
-        _ => RemoteCommand.right,
-      };
+    'up' => RemoteCommand.up,
+    'down' => RemoteCommand.down,
+    'left' => RemoteCommand.left,
+    _ => RemoteCommand.right,
+  };
 }
 
 class _Header extends StatelessWidget {
@@ -251,6 +324,7 @@ class _Header extends StatelessWidget {
     required this.onForget,
     required this.onRetry,
     required this.onPairAgain,
+    required this.tablet,
   });
 
   final String deviceName;
@@ -262,73 +336,76 @@ class _Header extends StatelessWidget {
   final VoidCallback onForget;
   final VoidCallback onRetry;
   final VoidCallback? onPairAgain;
+  final bool tablet;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 4, 4, 0),
-      child: Row(
-        children: [
-          IconButton(
-            tooltip: 'Close remote',
-            onPressed: onClose,
-            icon: const Icon(Icons.close),
-          ),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  deviceName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                Text(
-                  switch (state) {
-                    RemoteConnectionState.connected => 'Connected',
-                    RemoteConnectionState.connecting => 'Connecting…',
-                    RemoteConnectionState.reconnecting => 'Reconnecting…',
-                    RemoteConnectionState.error => error ?? 'Connection error',
-                    _ => 'Disconnected',
-                  },
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: state == RemoteConnectionState.connected
-                            ? colors.secondary
-                            : state == RemoteConnectionState.error
-                                ? colors.error
-                                : colors.onSurfaceVariant,
-                      ),
-                ),
+    return AdaptiveContent(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(tablet ? 20 : 4, 4, tablet ? 20 : 4, 0),
+        child: Row(
+          children: [
+            IconButton(
+              tooltip: 'Close remote',
+              onPressed: onClose,
+              icon: const Icon(Icons.close),
+            ),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    deviceName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  Text(
+                    switch (state) {
+                      RemoteConnectionState.connected => 'Connected',
+                      RemoteConnectionState.connecting => 'Connecting…',
+                      RemoteConnectionState.reconnecting => 'Reconnecting…',
+                      RemoteConnectionState.error =>
+                        error ?? 'Connection error',
+                      _ => 'Disconnected',
+                    },
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: state == RemoteConnectionState.connected
+                          ? colors.secondary
+                          : state == RemoteConnectionState.error
+                          ? colors.error
+                          : colors.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (state == RemoteConnectionState.error) ...[
+              TextButton(onPressed: onRetry, child: const Text('Retry')),
+              if (onPairAgain != null)
+                TextButton(onPressed: onPairAgain, child: const Text('Pair')),
+            ],
+            IconButton(
+              tooltip: 'Power',
+              onPressed: state == RemoteConnectionState.connected && showPower
+                  ? onPower
+                  : null,
+              icon: const Icon(Icons.power_settings_new),
+            ),
+            PopupMenuButton<String>(
+              tooltip: 'More options',
+              onSelected: (value) {
+                if (value == 'forget') onForget();
+              },
+              itemBuilder: (context) => const [
+                PopupMenuItem(value: 'forget', child: Text('Forget this TV')),
               ],
             ),
-          ),
-          if (state == RemoteConnectionState.error) ...[
-            TextButton(onPressed: onRetry, child: const Text('Retry')),
-            if (onPairAgain != null)
-              TextButton(onPressed: onPairAgain, child: const Text('Pair')),
           ],
-          IconButton(
-            tooltip: 'Power',
-            onPressed:
-                state == RemoteConnectionState.connected && showPower
-                    ? onPower
-                    : null,
-            icon: const Icon(Icons.power_settings_new),
-          ),
-          PopupMenuButton<String>(
-            tooltip: 'More options',
-            onSelected: (value) {
-              if (value == 'forget') onForget();
-            },
-            itemBuilder: (context) => const [
-              PopupMenuItem(value: 'forget', child: Text('Forget this TV')),
-            ],
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -359,10 +436,10 @@ class _MediaControlsSection extends StatelessWidget {
         Text(
           'MEDIA',
           style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: colors.onSurfaceVariant,
-                letterSpacing: 1.4,
-                fontWeight: FontWeight.w700,
-              ),
+            color: colors.onSurfaceVariant,
+            letterSpacing: 1.4,
+            fontWeight: FontWeight.w700,
+          ),
         ),
         const SizedBox(height: 10),
         Row(
@@ -403,8 +480,9 @@ class _MediaControlsSection extends StatelessWidget {
                     ? const Color(0xFFE3E5E8)
                     : const Color(0xFF2F3133).withValues(alpha: 0.4),
                 foregroundColor: const Color(0xFF202124),
-                disabledForegroundColor:
-                    const Color(0xFFE3E5E8).withValues(alpha: 0.3),
+                disabledForegroundColor: const Color(
+                  0xFFE3E5E8,
+                ).withValues(alpha: 0.3),
                 shape: const CircleBorder(),
               ),
             ),
@@ -483,8 +561,7 @@ class _RoundRemoteButton extends StatelessWidget {
         backgroundColor: const Color(0xFF2F3133),
         foregroundColor: const Color(0xFFE3E5E8),
         disabledBackgroundColor: const Color(0xFF2F3133).withValues(alpha: 0.4),
-        disabledForegroundColor:
-            const Color(0xFFE3E5E8).withValues(alpha: 0.3),
+        disabledForegroundColor: const Color(0xFFE3E5E8).withValues(alpha: 0.3),
         shape: const CircleBorder(),
       ),
     );

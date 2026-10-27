@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../shared/presentation/adaptive_layout.dart';
 import '../app_shortcut_store.dart';
 import '../tv_app.dart';
 
@@ -44,9 +45,12 @@ class _AppShortcutsSectionState extends State<AppShortcutsSection> {
   }
 
   Future<void> _manage() async {
+    final tablet = AdaptiveLayout.isTablet(context);
     final changed = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
+      showDragHandle: tablet,
+      constraints: tablet ? const BoxConstraints(maxWidth: 680) : null,
       builder: (_) => _ManageShortcutsSheet(store: widget.store),
     );
     if (changed == true) await _reload();
@@ -55,6 +59,7 @@ class _AppShortcutsSectionState extends State<AppShortcutsSection> {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final tablet = AdaptiveLayout.isTablet(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -64,10 +69,10 @@ class _AppShortcutsSectionState extends State<AppShortcutsSection> {
               child: Text(
                 'APPS',
                 style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: colors.onSurfaceVariant,
-                      letterSpacing: 1.4,
-                      fontWeight: FontWeight.w700,
-                    ),
+                  color: colors.onSurfaceVariant,
+                  letterSpacing: 1.4,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
             IconButton(
@@ -79,15 +84,14 @@ class _AppShortcutsSectionState extends State<AppShortcutsSection> {
           ],
         ),
         SizedBox(
-          height: 84,
+          height: tablet ? 100 : 84,
           child: _shortcuts.isEmpty
               ? Center(
                   child: Text(
                     'No app shortcuts yet — tap the pencil to add some.',
-                    style: Theme.of(context)
-                        .textTheme
-                        .bodySmall
-                        ?.copyWith(color: colors.onSurfaceVariant),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colors.onSurfaceVariant,
+                    ),
                   ),
                 )
               : ListView.separated(
@@ -98,11 +102,12 @@ class _AppShortcutsSectionState extends State<AppShortcutsSection> {
                     final app = _shortcuts[index];
                     final isActive =
                         app.packageName != null &&
-                            app.packageName == widget.activePackage;
+                        app.packageName == widget.activePackage;
                     return _AppShortcutButton(
                       app: app,
                       enabled: widget.enabled,
                       active: isActive,
+                      tablet: tablet,
                       onTap: () {
                         HapticFeedback.lightImpact();
                         widget.onLaunch(app);
@@ -121,12 +126,14 @@ class _AppShortcutButton extends StatelessWidget {
     required this.app,
     required this.enabled,
     required this.active,
+    required this.tablet,
     required this.onTap,
   });
 
   final TvApp app;
   final bool enabled;
   final bool active;
+  final bool tablet;
   final VoidCallback onTap;
 
   @override
@@ -138,7 +145,7 @@ class _AppShortcutButton extends StatelessWidget {
         onTap: enabled ? onTap : null,
         borderRadius: BorderRadius.circular(18),
         child: Container(
-          width: 72,
+          width: tablet ? 88 : 72,
           decoration: BoxDecoration(
             color: const Color(0xFF2F3133),
             borderRadius: BorderRadius.circular(18),
@@ -150,7 +157,7 @@ class _AppShortcutButton extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               CircleAvatar(
-                radius: 17,
+                radius: tablet ? 20 : 17,
                 backgroundColor: colors.primary.withValues(alpha: 0.16),
                 child: Text(
                   app.name.characters.first.toUpperCase(),
@@ -168,10 +175,10 @@ class _AppShortcutButton extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: enabled
-                            ? const Color(0xFFE3E5E8)
-                            : const Color(0xFFE3E5E8).withValues(alpha: 0.4),
-                      ),
+                    color: enabled
+                        ? const Color(0xFFE3E5E8)
+                        : const Color(0xFFE3E5E8).withValues(alpha: 0.4),
+                  ),
                 ),
               ),
             ],
@@ -249,7 +256,8 @@ class _ManageShortcutsSheetState extends State<_ManageShortcutsSheet> {
               decoration: const InputDecoration(
                 labelText: 'Package name or link',
                 hintText: 'com.example.tv or https://…',
-                helperText: 'Use an app link to open directly. Unknown package '
+                helperText:
+                    'Use an app link to open directly. Unknown package '
                     'names may open the Play Store.',
                 helperMaxLines: 3,
               ),
@@ -266,9 +274,9 @@ class _ManageShortcutsSheetState extends State<_ManageShortcutsSheet> {
               final name = nameController.text.trim();
               final target = targetController.text.trim();
               if (name.isEmpty || target.isEmpty) return;
-              Navigator.of(context).pop(
-                TvApp.customEntry(name: name, target: target),
-              );
+              Navigator.of(
+                context,
+              ).pop(TvApp.customEntry(name: name, target: target));
             },
             child: const Text('Add'),
           ),
@@ -333,10 +341,9 @@ class _ManageShortcutsSheetState extends State<_ManageShortcutsSheet> {
                       app.launchUrl.startsWith('market://')
                           ? 'May require selecting Open in the Play Store'
                           : app.packageName ?? '',
-                      style: Theme.of(context)
-                          .textTheme
-                          .bodySmall
-                          ?.copyWith(color: colors.onSurfaceVariant),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colors.onSurfaceVariant,
+                      ),
                     ),
                     value: _selected.contains(app.id),
                     onChanged: (value) => _toggle(app.id, value),
@@ -347,9 +354,9 @@ class _ManageShortcutsSheetState extends State<_ManageShortcutsSheet> {
                     child: Text(
                       'CUSTOM',
                       style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                            color: colors.onSurfaceVariant,
-                            letterSpacing: 1.2,
-                          ),
+                        color: colors.onSurfaceVariant,
+                        letterSpacing: 1.2,
+                      ),
                     ),
                   ),
                   for (final app in _custom)
@@ -359,10 +366,9 @@ class _ManageShortcutsSheetState extends State<_ManageShortcutsSheet> {
                         app.launchUrl,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodySmall
-                            ?.copyWith(color: colors.onSurfaceVariant),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: colors.onSurfaceVariant,
+                        ),
                       ),
                       trailing: IconButton(
                         tooltip: 'Remove ${app.name}',

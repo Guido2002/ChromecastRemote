@@ -24,6 +24,8 @@ in one list, labelled by the protocol they support.
 - **Automatic reconnection** — Reconnect to previously paired devices.
 - **Chromecast support** — Control supported Google Cast media sessions on older Chromecast devices.
 - **Dark interface** — Simple remote layout inspired by physical TV remotes.
+- **Phone and tablet layouts** — Compact phone controls and purpose-built
+  tablet layouts with two-column remotes, larger targets and bounded content.
 
 Some controls depend on the connected device and the application currently running on the TV.
 

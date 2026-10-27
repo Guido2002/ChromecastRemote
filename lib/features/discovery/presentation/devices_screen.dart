@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_chrome_cast/flutter_chrome_cast.dart';
 
 import '../../../core/app_services.dart';
+import '../../../shared/presentation/adaptive_layout.dart';
 import '../../../shared/models/discovered_device.dart';
 import '../../pairing/paired_device_store.dart';
 import '../../pairing/presentation/pairing_screen.dart';
@@ -52,8 +53,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
     try {
       final last = await _services.pairedDevices.loadLastDevice();
       if (last == null || last.protocol != 'androidTvRemote') return;
-      final paired =
-          await _services.pairedDevices.findByServiceName(last.id);
+      final paired = await _services.pairedDevices.findByServiceName(last.id);
       if (paired == null || !mounted) return;
       await _openPairedAndroidTv(paired);
     } catch (_) {
@@ -70,9 +70,11 @@ class _DevicesScreenState extends State<DevicesScreen> {
       await _services.discovery.start();
     } catch (error) {
       if (mounted) {
-        setState(() => _error =
-            'Discovery failed: $error. Check that you are on Wi-Fi and that '
-            'local network access is allowed.');
+        setState(
+          () => _error =
+              'Discovery failed: $error. Check that you are on Wi-Fi and that '
+              'local network access is allowed.',
+        );
       }
     } finally {
       if (mounted) setState(() => _scanning = false);
@@ -188,6 +190,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final tablet = AdaptiveLayout.isTablet(context);
     return Scaffold(
       appBar: AppBar(
         title: const Text('Devices'),
@@ -210,50 +213,100 @@ class _DevicesScreenState extends State<DevicesScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          if (_error != null)
+      body: AdaptiveContent(
+        maxWidth: 1040,
+        child: Column(
+          children: [
+            if (_error != null)
+              Padding(
+                padding: EdgeInsets.fromLTRB(
+                  tablet ? 24 : 16,
+                  tablet ? 12 : 0,
+                  tablet ? 24 : 16,
+                  8,
+                ),
+                child: _ErrorBanner(message: _error!, onRetry: _rescan),
+              ),
+            Expanded(
+              child: _devices.isEmpty
+                  ? _EmptyDevices(scanning: _scanning, error: _error)
+                  : tablet
+                  ? GridView.builder(
+                      key: const ValueKey('devices-tablet-grid'),
+                      padding: const EdgeInsets.fromLTRB(24, 16, 24, 28),
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            mainAxisExtent: 92,
+                            crossAxisSpacing: 16,
+                            mainAxisSpacing: 16,
+                          ),
+                      itemCount: _devices.length,
+                      itemBuilder: (context, index) {
+                        final device = _devices[index];
+                        return _DeviceTile(
+                          device: device,
+                          tablet: true,
+                          onTap: () => _openDevice(device),
+                        );
+                      },
+                    )
+                  : ListView.separated(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                      itemCount: _devices.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 8),
+                      itemBuilder: (context, index) {
+                        final device = _devices[index];
+                        return _DeviceTile(
+                          device: device,
+                          tablet: false,
+                          onTap: () => _openDevice(device),
+                        );
+                      },
+                    ),
+            ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              child: _ErrorBanner(message: _error!, onRetry: _rescan),
-            ),
-          Expanded(
-            child: _devices.isEmpty
-                ? _EmptyDevices(scanning: _scanning, error: _error)
-                : ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                    itemCount: _devices.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 8),
-                    itemBuilder: (context, index) {
-                      final device = _devices[index];
-                      return _DeviceTile(
-                        device: device,
-                        onTap: () => _openDevice(device),
-                      );
-                    },
+              padding: EdgeInsets.fromLTRB(
+                tablet ? 24 : 16,
+                0,
+                tablet ? 24 : 16,
+                tablet ? 24 : 16,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.wifi_rounded,
+                    size: 16,
+                    color: colors.onSurfaceVariant,
                   ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            child: Text(
-              'Phone and TV must be on the same Wi-Fi network.',
-              style: Theme.of(context)
-                  .textTheme
-                  .bodySmall
-                  ?.copyWith(color: colors.onSurfaceVariant),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Phone or tablet and TV must be on the same Wi-Fi network.',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colors.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
 
 class _DeviceTile extends StatelessWidget {
-  const _DeviceTile({required this.device, required this.onTap});
+  const _DeviceTile({
+    required this.device,
+    required this.onTap,
+    required this.tablet,
+  });
 
   final DiscoveredDevice device;
   final VoidCallback onTap;
+  final bool tablet;
 
   @override
   Widget build(BuildContext context) {
@@ -261,8 +314,10 @@ class _DeviceTile extends StatelessWidget {
     final isAndroidTv = device.protocol == DeviceProtocol.androidTvRemote;
     return Card(
       child: ListTile(
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        contentPadding: EdgeInsets.symmetric(
+          horizontal: tablet ? 20 : 16,
+          vertical: tablet ? 12 : 6,
+        ),
         leading: CircleAvatar(
           backgroundColor: colors.primary.withValues(alpha: 0.14),
           child: Icon(
@@ -270,11 +325,7 @@ class _DeviceTile extends StatelessWidget {
             color: colors.primary,
           ),
         ),
-        title: Text(
-          device.name,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
+        title: Text(device.name, maxLines: 1, overflow: TextOverflow.ellipsis),
         subtitle: Text(device.protocolLabel),
         trailing: const Icon(Icons.chevron_right),
         onTap: onTap,
@@ -308,8 +359,8 @@ class _EmptyDevices extends StatelessWidget {
               scanning
                   ? 'Looking for TVs and Chromecasts…'
                   : error != null
-                      ? 'Could not scan the network'
-                      : 'No devices found yet',
+                  ? 'Could not scan the network'
+                  : 'No devices found yet',
               style: Theme.of(context).textTheme.titleMedium,
               textAlign: TextAlign.center,
             ),
@@ -317,10 +368,9 @@ class _EmptyDevices extends StatelessWidget {
             Text(
               'Google TV devices appear when their remote service is enabled, '
               'Chromecasts appear automatically.',
-              style: Theme.of(context)
-                  .textTheme
-                  .bodySmall
-                  ?.copyWith(color: colors.onSurfaceVariant),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: colors.onSurfaceVariant),
               textAlign: TextAlign.center,
             ),
           ],

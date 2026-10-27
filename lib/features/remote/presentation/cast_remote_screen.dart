@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_chrome_cast/flutter_chrome_cast.dart';
 
 import '../../../media_url.dart';
+import '../../../shared/presentation/adaptive_layout.dart';
 
 /// Remote screen for classic Chromecast devices.
 ///
@@ -59,6 +60,7 @@ class _CastRemoteScreenState extends State<CastRemoteScreen> {
             session?.connectionState == GoogleCastConnectState.connected;
         final connecting =
             session?.connectionState == GoogleCastConnectState.connecting;
+        final tablet = AdaptiveLayout.isTablet(context);
 
         return Scaffold(
           appBar: AppBar(
@@ -74,13 +76,13 @@ class _CastRemoteScreenState extends State<CastRemoteScreen> {
                   connected
                       ? 'Connected · Cast media'
                       : connecting
-                          ? 'Connecting…'
-                          : 'Disconnected',
+                      ? 'Connecting…'
+                      : 'Disconnected',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: connected
-                            ? Theme.of(context).colorScheme.secondary
-                            : Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
+                    color: connected
+                        ? Theme.of(context).colorScheme.secondary
+                        : Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ],
             ),
@@ -92,41 +94,83 @@ class _CastRemoteScreenState extends State<CastRemoteScreen> {
               ),
             ],
           ),
-          body: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
-            children: [
-              _MediaControlsCard(connected: connected, onMessage: _showMessage),
-              const SizedBox(height: 14),
-              _VolumeCard(
-                session: session,
-                connected: connected,
-                onMessage: _showMessage,
-              ),
-              const SizedBox(height: 24),
-              Text(
-                'PLAY SOMETHING',
-                style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      letterSpacing: 1.4,
-                      fontWeight: FontWeight.w700,
+          body: SingleChildScrollView(
+            padding: AdaptiveLayout.pagePadding(context),
+            child: AdaptiveContent(
+              maxWidth: 1080,
+              child: tablet
+                  ? Row(
+                      key: const ValueKey('cast-tablet-layout'),
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          flex: 6,
+                          child: Column(
+                            children: [
+                              _MediaControlsCard(
+                                connected: connected,
+                                onMessage: _showMessage,
+                              ),
+                              const SizedBox(height: 18),
+                              _VolumeCard(
+                                session: session,
+                                connected: connected,
+                                onMessage: _showMessage,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 24),
+                        Expanded(flex: 5, child: _buildPlaySection(connected)),
+                      ],
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _MediaControlsCard(
+                          connected: connected,
+                          onMessage: _showMessage,
+                        ),
+                        const SizedBox(height: 14),
+                        _VolumeCard(
+                          session: session,
+                          connected: connected,
+                          onMessage: _showMessage,
+                        ),
+                        const SizedBox(height: 24),
+                        _buildPlaySection(connected),
+                      ],
                     ),
-              ),
-              const SizedBox(height: 10),
-              _CastUrlCard(connected: connected, onMessage: _showMessage),
-              const SizedBox(height: 16),
-              const _InlineNotice(
-                message:
-                    'Classic Chromecasts do not support system navigation. '
-                    'Media started by other apps can only be controlled when '
-                    'the receiver exposes a standard media session.',
-                isError: false,
-              ),
-            ],
+            ),
           ),
         );
       },
     );
   }
+
+  Widget _buildPlaySection(bool connected) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        'PLAY SOMETHING',
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+          letterSpacing: 1.4,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+      const SizedBox(height: 10),
+      _CastUrlCard(connected: connected, onMessage: _showMessage),
+      const SizedBox(height: 16),
+      const _InlineNotice(
+        message:
+            'Classic Chromecasts do not support system navigation. '
+            'Media started by other apps can only be controlled when the '
+            'receiver exposes a standard media session.',
+        isError: false,
+      ),
+    ],
+  );
 }
 
 class _MediaControlsCard extends StatefulWidget {
@@ -170,8 +214,9 @@ class _MediaControlsCardState extends State<_MediaControlsCard> {
   Future<void> _seek(Duration position) async {
     setState(() => _dragPosition = null);
     await _perform(
-      () => GoogleCastRemoteMediaClient.instance
-          .seek(GoogleCastMediaSeekOption(position: position)),
+      () => GoogleCastRemoteMediaClient.instance.seek(
+        GoogleCastMediaSeekOption(position: position),
+      ),
     );
   }
 
@@ -194,7 +239,8 @@ class _MediaControlsCardState extends State<_MediaControlsCard> {
             final title = _titleFor(info);
             final state = status?.playerState;
             final playing = state == CastMediaPlayerState.playing;
-            final loading = state == CastMediaPlayerState.loading ||
+            final loading =
+                state == CastMediaPlayerState.loading ||
                 state == CastMediaPlayerState.buffering;
             final canControl = widget.connected && mediaLoaded && !_busy;
 
@@ -227,17 +273,13 @@ class _MediaControlsCardState extends State<_MediaControlsCard> {
                             mediaLoaded ? title : 'Nothing playing',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleSmall
+                            style: Theme.of(context).textTheme.titleSmall
                                 ?.copyWith(fontWeight: FontWeight.w700),
                           ),
                           const SizedBox(height: 4),
                           Text(
                             _playerLabel(state, widget.connected),
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodySmall
+                            style: Theme.of(context).textTheme.bodySmall
                                 ?.copyWith(
                                   color: loading
                                       ? colors.primary
@@ -258,7 +300,8 @@ class _MediaControlsCardState extends State<_MediaControlsCard> {
                 if (statusSnapshot.hasError) ...[
                   const SizedBox(height: 14),
                   _InlineNotice(
-                    message: 'Could not read playback status: '
+                    message:
+                        'Could not read playback status: '
                         '${statusSnapshot.error}',
                     isError: true,
                   ),
@@ -271,7 +314,8 @@ class _MediaControlsCardState extends State<_MediaControlsCard> {
                     final actualPosition =
                         positionSnapshot.data ?? Duration.zero;
                     final totalMs = duration?.inMilliseconds ?? 0;
-                    final currentMs = _dragPosition ??
+                    final currentMs =
+                        _dragPosition ??
                         actualPosition.inMilliseconds
                             .clamp(0, totalMs > 0 ? totalMs : 0)
                             .toDouble();
@@ -290,7 +334,7 @@ class _MediaControlsCardState extends State<_MediaControlsCard> {
                               : null,
                           onChangeEnd: sliderEnabled
                               ? (value) =>
-                                  _seek(Duration(milliseconds: value.round()))
+                                    _seek(Duration(milliseconds: value.round()))
                               : null,
                         ),
                         Padding(
@@ -339,7 +383,7 @@ class _MediaControlsCardState extends State<_MediaControlsCard> {
                       child: FilledButton(
                         onPressed: canControl
                             ? () =>
-                                _perform(playing ? client.pause : client.play)
+                                  _perform(playing ? client.pause : client.play)
                             : null,
                         style: FilledButton.styleFrom(
                           shape: const CircleBorder(),
@@ -366,7 +410,9 @@ class _MediaControlsCardState extends State<_MediaControlsCard> {
                     const SizedBox(width: 8),
                     IconButton(
                       tooltip: 'Stop playback',
-                      onPressed: canControl ? () => _perform(client.stop) : null,
+                      onPressed: canControl
+                          ? () => _perform(client.stop)
+                          : null,
                       icon: const Icon(Icons.stop_rounded),
                     ),
                   ],
@@ -377,8 +423,8 @@ class _MediaControlsCardState extends State<_MediaControlsCard> {
                     'Cast a direct media link below to enable playback controls.',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: colors.onSurfaceVariant,
-                        ),
+                      color: colors.onSurfaceVariant,
+                    ),
                   ),
                 ],
               ],
@@ -498,8 +544,8 @@ class _VolumeCardState extends State<_VolumeCard> {
                 '${(value * 100).round()}%',
                 textAlign: TextAlign.end,
                 style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: colors.onSurfaceVariant,
-                    ),
+                  color: colors.onSurfaceVariant,
+                ),
               ),
             ),
           ],
@@ -578,17 +624,16 @@ class _CastUrlCardState extends State<_CastUrlCard> {
           children: [
             Text(
               'Cast a media link',
-              style: Theme.of(context)
-                  .textTheme
-                  .titleSmall
-                  ?.copyWith(fontWeight: FontWeight.w700),
+              style: Theme.of(
+                context,
+              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 6),
             Text(
               'Paste a direct audio or video URL that your Chromecast can open.',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: colors.onSurfaceVariant,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: colors.onSurfaceVariant),
             ),
             const SizedBox(height: 14),
             TextField(
@@ -607,7 +652,8 @@ class _CastUrlCardState extends State<_CastUrlCard> {
             if (_showFormatWarning) ...[
               const SizedBox(height: 10),
               const _InlineNotice(
-                message: 'The file type is unknown. The receiver may not be '
+                message:
+                    'The file type is unknown. The receiver may not be '
                     'able to play this URL.',
                 isError: false,
               ),
@@ -631,9 +677,9 @@ class _CastUrlCardState extends State<_CastUrlCard> {
               const SizedBox(height: 8),
               Text(
                 'Connect a Chromecast before sending media.',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colors.onSurfaceVariant,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: colors.onSurfaceVariant),
               ),
             ],
           ],
@@ -702,8 +748,8 @@ String _playerLabel(CastMediaPlayerState? state, bool connected) {
   return switch (state) {
     CastMediaPlayerState.playing => 'Now playing',
     CastMediaPlayerState.paused => 'Paused',
-    CastMediaPlayerState.loading || CastMediaPlayerState.buffering =>
-      'Loading media…',
+    CastMediaPlayerState.loading ||
+    CastMediaPlayerState.buffering => 'Loading media…',
     CastMediaPlayerState.idle => 'Ready for media',
     CastMediaPlayerState.unknown || null => 'Waiting for playback',
   };
