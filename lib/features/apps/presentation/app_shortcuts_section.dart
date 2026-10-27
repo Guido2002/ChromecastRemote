@@ -249,6 +249,9 @@ class _ManageShortcutsSheetState extends State<_ManageShortcutsSheet> {
               decoration: const InputDecoration(
                 labelText: 'Package name or link',
                 hintText: 'com.example.tv or https://…',
+                helperText: 'Use an app link to open directly. Unknown package '
+                    'names may open the Play Store.',
+                helperMaxLines: 3,
               ),
             ),
           ],
@@ -327,7 +330,9 @@ class _ManageShortcutsSheetState extends State<_ManageShortcutsSheet> {
                   SwitchListTile(
                     title: Text(app.name),
                     subtitle: Text(
-                      app.packageName ?? '',
+                      app.launchUrl.startsWith('market://')
+                          ? 'May require selecting Open in the Play Store'
+                          : app.packageName ?? '',
                       style: Theme.of(context)
                           .textTheme
                           .bodySmall

@@ -164,8 +164,8 @@ class AndroidTvRemoteController implements RemoteController {
     _client.sendKey(keyCode);
   }
 
-  /// Launches an app on the TV via an app link (e.g.
-  /// `market://launch?id=<package>`). Requires the APP_LINK feature.
+  /// Launches an app on the TV via its deep link (e.g. `netflix://`).
+  /// Requires the APP_LINK feature.
   void launchAppLink(String link) {
     if (!capabilities.contains(RemoteCapability.appLaunch)) return;
     _client.launchAppLink(link);
