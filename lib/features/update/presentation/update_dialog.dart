@@ -32,6 +32,7 @@ class _UpdateAvailableDialogState extends State<UpdateAvailableDialog> {
   final _installer = ApkInstaller();
 
   bool _downloading = false;
+  bool _installerLaunched = false;
   double? _progress;
   String? _error;
 
@@ -53,15 +54,19 @@ class _UpdateAvailableDialogState extends State<UpdateAvailableDialog> {
           if (mounted) setState(() => _progress = progress);
         },
       );
-      final launched = await _installer.launchInstall(file);
+      final launch = await _installer.launchInstall(file);
       if (!mounted) return;
-      if (launched) {
-        Navigator.of(context).pop();
+      if (launch.launched) {
+        setState(() {
+          _downloading = false;
+          _installerLaunched = true;
+        });
       } else {
         setState(() {
           _downloading = false;
-          _error = 'Android could not open the installer. Allow installs '
-              'from this app in Settings, or use "View on GitHub".';
+          _error = 'Android could not open the installer (${launch.detail}). '
+              'Allow installs from this app in Settings, or use '
+              '"View on GitHub".';
         });
       }
     } catch (error) {
@@ -121,6 +126,18 @@ class _UpdateAvailableDialogState extends State<UpdateAvailableDialog> {
                   ? 'Downloading update…'
                   : 'Downloading update… ${(_progress! * 100).round()}%',
               style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
+          if (_installerLaunched) ...[
+            const SizedBox(height: 20),
+            Text(
+              'Confirm the installation in the Android installer. If Android '
+              'says "App not installed", the update was signed with a '
+              'different key than the installed app — uninstall the app '
+              'first, then install the update.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colors.onSurfaceVariant,
+                  ),
             ),
           ],
           if (_error != null) ...[

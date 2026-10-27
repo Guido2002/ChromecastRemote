@@ -6,6 +6,15 @@ import 'package:path_provider/path_provider.dart';
 
 import 'update_checker.dart';
 
+/// Whether the system package installer could be opened, with the platform's
+/// detail message for failures.
+class InstallLaunchResult {
+  const InstallLaunchResult({required this.launched, required this.detail});
+
+  final bool launched;
+  final String detail;
+}
+
 /// Downloads the release APK to local storage and hands it to Android's
 /// package installer.
 ///
@@ -81,10 +90,14 @@ class ApkInstaller {
   }
 
   /// Opens Android's package installer for [file]. The user must confirm the
-  /// installation; returns false when the installer could not be launched.
-  Future<bool> launchInstall(File file) async {
+  /// installation. Note the platform only reports whether the installer was
+  /// *launched* — it cannot report whether the user actually installed.
+  Future<InstallLaunchResult> launchInstall(File file) async {
     final result = await OpenFilex.open(file.path, type: _apkMimeType);
-    return result.type == ResultType.done;
+    return InstallLaunchResult(
+      launched: result.type == ResultType.done,
+      detail: result.message,
+    );
   }
 
   /// Removes a previously downloaded update file.
