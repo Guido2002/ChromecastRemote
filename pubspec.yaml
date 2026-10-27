@@ -1,0 +1,27 @@
+name: chromecast_remote
+description: A universal Flutter remote for Google TV / Android TV (Android TV Remote Protocol v2) and classic Chromecast devices (Google Cast).
+publish_to: none
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.12.0
+  flutter: '>=3.44.0'
+
+dependencies:
+  asn1lib: ^1.6.7
+  basic_utils: ^5.8.2
+  bonsoir: ^7.1.6
+  crypto: ^3.0.8
+  flutter:
+    sdk: flutter
+  flutter_chrome_cast: ^2.0.0
+  flutter_secure_storage: ^11.2.0
+  protobuf: ^6.1.0
+
+dev_dependencies:
+  flutter_lints: ^6.0.0
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
