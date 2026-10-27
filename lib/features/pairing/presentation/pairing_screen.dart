@@ -191,24 +191,8 @@ class _PairingScreenState extends State<PairingScreen> {
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 24),
-        TextField(
+        _CodeInput(
           controller: _codeController,
-          autofocus: true,
-          textAlign: TextAlign.center,
-          maxLength: 6,
-          autocorrect: false,
-          style: const TextStyle(
-            fontSize: 28,
-            letterSpacing: 8,
-            fontFeatures: [FontFeature.tabularFigures()],
-          ),
-          inputFormatters: [
-            FilteringTextInputFormatter.allow(RegExp('[0-9a-fA-F]')),
-          ],
-          decoration: const InputDecoration(
-            hintText: '——————',
-            counterText: '',
-          ),
           onSubmitted: (_) => _submitIfComplete(),
           onChanged: (_) => _submitIfComplete(),
         ),
@@ -262,6 +246,93 @@ class _PairingScreenState extends State<PairingScreen> {
           child: const Text('Cancel'),
         ),
       ],
+    );
+  }
+}
+
+class _CodeInput extends StatelessWidget {
+  const _CodeInput({
+    required this.controller,
+    required this.onChanged,
+    required this.onSubmitted,
+  });
+
+  final TextEditingController controller;
+  final ValueChanged<String> onChanged;
+  final ValueChanged<String> onSubmitted;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return SizedBox(
+      height: 58,
+      child: Stack(
+        children: [
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: controller,
+            builder: (context, value, _) {
+              final code = value.text.toUpperCase();
+              return Row(
+                children: List.generate(6, (index) {
+                  final filled = index < code.length;
+                  final active = index == code.length && code.length < 6;
+                  return Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.only(left: index == 0 ? 0 : 6),
+                      child: AnimatedContainer(
+                        duration: AppMotion.quick,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: colors.surfaceContainerLow,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: active
+                                ? colors.primary
+                                : colors.outlineVariant,
+                            width: active ? 1.5 : 1,
+                          ),
+                        ),
+                        child: Text(
+                          filled ? code[index] : '',
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(
+                                fontFeatures: const [
+                                  FontFeature.tabularFigures(),
+                                ],
+                              ),
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+              );
+            },
+          ),
+          Positioned.fill(
+            child: Opacity(
+              opacity: 0.01,
+              child: TextField(
+                controller: controller,
+                autofocus: true,
+                maxLength: 6,
+                autocorrect: false,
+                enableSuggestions: false,
+                textCapitalization: TextCapitalization.characters,
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp('[0-9a-fA-F]')),
+                ],
+                decoration: const InputDecoration(
+                  counterText: '',
+                  border: InputBorder.none,
+                  filled: false,
+                ),
+                onChanged: onChanged,
+                onSubmitted: onSubmitted,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -7,6 +7,7 @@ import '../../../shared/presentation/adaptive_layout.dart';
 import '../../../shared/presentation/app_motion.dart';
 import '../app_shortcut_store.dart';
 import '../tv_app.dart';
+import 'tv_app_icon.dart';
 
 /// Horizontally scrolling app shortcuts that launch apps on the TV.
 ///
@@ -205,7 +206,7 @@ class _AppShortcutButton extends StatelessWidget {
                       : Opacity(
                           key: ValueKey('app-icon-${app.id}'),
                           opacity: enabled ? 1 : 0.42,
-                          child: _AppIcon(
+                          child: TvAppIcon(
                             app: app,
                             size: tablet ? 40 : 34,
                             borderRadius: tablet ? 12 : 10,
@@ -230,52 +231,6 @@ class _AppShortcutButton extends StatelessWidget {
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _AppIcon extends StatelessWidget {
-  const _AppIcon({
-    required this.app,
-    required this.size,
-    required this.borderRadius,
-  });
-
-  final TvApp app;
-  final double size;
-  final double borderRadius;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    final fallback = Container(
-      width: size,
-      height: size,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: colors.primaryContainer,
-        borderRadius: BorderRadius.circular(borderRadius),
-      ),
-      child: Text(
-        app.name.characters.first.toUpperCase(),
-        style: TextStyle(
-          color: colors.onPrimaryContainer,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
-    final assetPath = app.iconAssetPath;
-    if (assetPath == null) return fallback;
-
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(borderRadius),
-      child: Image.asset(
-        assetPath,
-        width: size,
-        height: size,
-        fit: BoxFit.cover,
-        errorBuilder: (_, _, _) => fallback,
       ),
     );
   }
@@ -428,7 +383,7 @@ class _ManageShortcutsSheetState extends State<_ManageShortcutsSheet> {
               children: [
                 for (final app in catalogApps)
                   SwitchListTile(
-                    secondary: _AppIcon(app: app, size: 42, borderRadius: 12),
+                    secondary: TvAppIcon(app: app, size: 42, borderRadius: 12),
                     title: Text(app.name),
                     subtitle: Text(
                       app.launchUrl.startsWith('market://')
@@ -454,7 +409,7 @@ class _ManageShortcutsSheetState extends State<_ManageShortcutsSheet> {
                   ),
                   for (final app in _custom)
                     ListTile(
-                      leading: _AppIcon(app: app, size: 42, borderRadius: 12),
+                      leading: TvAppIcon(app: app, size: 42, borderRadius: 12),
                       title: Text(app.name),
                       subtitle: Text(
                         app.launchUrl,

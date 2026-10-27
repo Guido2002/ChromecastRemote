@@ -1,6 +1,7 @@
 import 'package:chromecast_remote/shared/presentation/app_motion.dart';
 import 'package:chromecast_remote/shared/presentation/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -15,7 +16,16 @@ void main() {
       isNot(theme.scaffoldBackgroundColor),
     );
     expect(theme.cardTheme.color, theme.colorScheme.surfaceContainerLow);
+    expect(theme.colorScheme.primary, const Color(0xFF2388FF));
   });
+
+  test(
+    'the branded launcher artwork is bundled for the Flutter splash',
+    () async {
+      final data = await rootBundle.load('assets/branding/app_icon.png');
+      expect(data.lengthInBytes, greaterThan(0));
+    },
+  );
 
   testWidgets('entrance motion becomes instant when reduced motion is on', (
     tester,

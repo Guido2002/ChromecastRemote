@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_chrome_cast/flutter_chrome_cast.dart';
 
 import 'features/discovery/presentation/devices_screen.dart';
+import 'shared/presentation/app_motion.dart';
 import 'shared/presentation/app_theme.dart';
 
 void main() {
@@ -79,19 +80,80 @@ class _StartupLoading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 20),
-            Text('Starting Chromecast Remote…'),
-          ],
-        ),
+    final colors = Theme.of(context).colorScheme;
+    return Scaffold(
+      body: Stack(
+        children: [
+          Positioned(
+            left: -110,
+            bottom: -130,
+            child: _GlowOrb(size: 290, color: colors.primary),
+          ),
+          Positioned(
+            right: -85,
+            top: -100,
+            child: _GlowOrb(size: 220, color: colors.primary),
+          ),
+          Center(
+            child: MotionEntrance(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(24),
+                    child: Image.asset(
+                      'assets/branding/app_icon.png',
+                      width: 96,
+                      height: 96,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    'Chromecast Remote',
+                    style: Theme.of(context).textTheme.headlineSmall,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Control Google TV and Chromecast devices',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: colors.onSurfaceVariant,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 28),
+                  const SizedBox(
+                    width: 120,
+                    child: LinearProgressIndicator(minHeight: 3),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
+}
+
+class _GlowOrb extends StatelessWidget {
+  const _GlowOrb({required this.size, required this.color});
+
+  final double size;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => IgnorePointer(
+    child: Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: RadialGradient(
+          colors: [color.withValues(alpha: 0.34), Colors.transparent],
+        ),
+      ),
+    ),
+  );
 }
 
 class _StartupError extends StatelessWidget {
@@ -109,7 +171,14 @@ class _StartupError extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.cast_connected, size: 48),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(18),
+                child: Image.asset(
+                  'assets/branding/app_icon.png',
+                  width: 72,
+                  height: 72,
+                ),
+              ),
               const SizedBox(height: 20),
               Text(
                 'Could not start Chromecast Remote',

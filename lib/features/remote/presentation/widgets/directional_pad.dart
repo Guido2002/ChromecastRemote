@@ -108,9 +108,15 @@ class DirectionalPad extends StatelessWidget {
                 dimension: diameter * 0.42,
                 child: Material(
                   color: enabled
-                      ? colors.primaryContainer
+                      ? colors.surfaceContainerLow
                       : colors.surfaceContainerHighest.withValues(alpha: 0.5),
-                  shape: const CircleBorder(),
+                  shape: CircleBorder(
+                    side: BorderSide(
+                      color: enabled
+                          ? colors.outline
+                          : colors.outlineVariant.withValues(alpha: 0.5),
+                    ),
+                  ),
                   child: InkWell(
                     customBorder: const CircleBorder(),
                     overlayColor: WidgetStatePropertyAll(
@@ -122,7 +128,17 @@ class DirectionalPad extends StatelessWidget {
                             onSelect();
                           }
                         : null,
-                    child: const SizedBox.expand(),
+                    child: Center(
+                      child: Text(
+                        'OK',
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(
+                              color: enabled
+                                  ? colors.onSurface
+                                  : colors.onSurface.withValues(alpha: 0.35),
+                            ),
+                      ),
+                    ),
                   ),
                 ),
               ),

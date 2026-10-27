@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
 
 abstract final class AppColors {
-  static const background = Color(0xFF0B0E14);
-  static const surface = Color(0xFF11151D);
-  static const surfaceLow = Color(0xFF171C26);
-  static const surfaceHigh = Color(0xFF202735);
-  static const surfaceHighest = Color(0xFF2A3343);
-  static const outline = Color(0xFF3B4658);
-  static const primary = Color(0xFF9AB2FF);
-  static const primaryContainer = Color(0xFF263761);
-  static const secondary = Color(0xFF67D8C6);
-  static const secondaryContainer = Color(0xFF173F3A);
-  static const text = Color(0xFFF2F5FA);
-  static const textMuted = Color(0xFFA9B3C3);
+  static const background = Color(0xFF070B10);
+  static const surface = Color(0xFF0C1117);
+  static const surfaceLow = Color(0xFF10161E);
+  static const surfaceHigh = Color(0xFF171E27);
+  static const surfaceHighest = Color(0xFF202A35);
+  static const outline = Color(0xFF303B49);
+  static const primary = Color(0xFF2388FF);
+  static const primaryContainer = Color(0xFF0A376A);
+  static const secondary = Color(0xFF3DDC84);
+  static const secondaryContainer = Color(0xFF123C2A);
+  static const text = Color(0xFFF5F7FA);
+  static const textMuted = Color(0xFF8F9BAA);
   static const error = Color(0xFFFF858D);
   static const errorContainer = Color(0xFF51262C);
 }
@@ -20,9 +20,9 @@ abstract final class AppColors {
 ThemeData buildAppTheme() {
   const scheme = ColorScheme.dark(
     primary: AppColors.primary,
-    onPrimary: Color(0xFF0C1A3A),
+    onPrimary: Color(0xFFFFFFFF),
     primaryContainer: AppColors.primaryContainer,
-    onPrimaryContainer: Color(0xFFDCE5FF),
+    onPrimaryContainer: Color(0xFFD7E9FF),
     secondary: AppColors.secondary,
     onSecondary: Color(0xFF00201B),
     secondaryContainer: AppColors.secondaryContainer,
@@ -35,10 +35,10 @@ ThemeData buildAppTheme() {
     onSurface: AppColors.text,
     onSurfaceVariant: AppColors.textMuted,
     outline: AppColors.outline,
-    outlineVariant: Color(0xFF2B3442),
+    outlineVariant: Color(0xFF222C37),
     surfaceContainerLowest: AppColors.background,
     surfaceContainerLow: AppColors.surfaceLow,
-    surfaceContainer: Color(0xFF1B212C),
+    surfaceContainer: Color(0xFF141B23),
     surfaceContainerHigh: AppColors.surfaceHigh,
     surfaceContainerHighest: AppColors.surfaceHighest,
   );
@@ -85,7 +85,7 @@ ThemeData buildAppTheme() {
       elevation: 0,
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(14),
         side: BorderSide(color: scheme.outlineVariant),
       ),
     ),
@@ -114,7 +114,7 @@ ThemeData buildAppTheme() {
       style: FilledButton.styleFrom(
         minimumSize: const Size(48, 52),
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
@@ -122,7 +122,7 @@ ThemeData buildAppTheme() {
         minimumSize: const Size(48, 52),
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
         side: BorderSide(color: scheme.outline),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     ),
     textButtonTheme: TextButtonThemeData(
@@ -153,7 +153,7 @@ ThemeData buildAppTheme() {
       behavior: SnackBarBehavior.floating,
       backgroundColor: scheme.surfaceContainerHighest,
       contentTextStyle: const TextStyle(color: AppColors.text),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       insetPadding: const EdgeInsets.all(16),
     ),
     dialogTheme: DialogThemeData(
@@ -168,6 +168,41 @@ ThemeData buildAppTheme() {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
+    ),
+    navigationBarTheme: NavigationBarThemeData(
+      height: 70,
+      backgroundColor: scheme.surface,
+      indicatorColor: scheme.primaryContainer,
+      elevation: 0,
+      labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+      iconTheme: WidgetStateProperty.resolveWith((states) {
+        final selected = states.contains(WidgetState.selected);
+        return IconThemeData(
+          color: selected ? scheme.primary : scheme.onSurfaceVariant,
+          size: 23,
+        );
+      }),
+      labelTextStyle: WidgetStateProperty.resolveWith((states) {
+        final selected = states.contains(WidgetState.selected);
+        return TextStyle(
+          color: selected ? scheme.primary : scheme.onSurfaceVariant,
+          fontSize: 11,
+          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+        );
+      }),
+    ),
+    chipTheme: base.chipTheme.copyWith(
+      backgroundColor: scheme.surfaceContainerLow,
+      selectedColor: scheme.primary,
+      secondarySelectedColor: scheme.primary,
+      labelStyle: TextStyle(color: scheme.onSurface),
+      secondaryLabelStyle: TextStyle(
+        color: scheme.onPrimary,
+        fontWeight: FontWeight.w700,
+      ),
+      side: BorderSide(color: scheme.outlineVariant),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      showCheckmark: false,
     ),
     pageTransitionsTheme: const PageTransitionsTheme(
       builders: {

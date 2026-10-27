@@ -28,6 +28,10 @@ in one list, labelled by the protocol they support.
   tablet layouts with two-column remotes, larger targets and bounded content.
 - **Accessible, state-driven interface** — Semantic status colors, clear
   recovery actions, immediate command feedback and reduced-motion support.
+- **Purpose-built visual identity** — A branded launcher and splash icon,
+  compact blue-black controls, clearer device cards and a focused settings view.
+- **Structured home navigation** — Dedicated Devices, Remote, Apps and Settings
+  destinations, with Nearby/Saved device modes and a searchable app library.
 
 Some controls depend on the connected device and the application currently running on the TV.
 

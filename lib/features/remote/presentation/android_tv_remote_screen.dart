@@ -191,9 +191,7 @@ class _AndroidTvRemoteScreenState extends State<AndroidTvRemoteScreen> {
               onPower: () => _send(RemoteCommand.power),
               onForget: _forgetDevice,
               onRetry: () => unawaited(_controller.connect()),
-              onPairAgain: _state == RemoteConnectionState.error
-                  ? _pairAgain
-                  : null,
+              onPairAgain: _pairAgain,
             ),
             if (_state == RemoteConnectionState.reconnecting)
               const LinearProgressIndicator(minHeight: 2),
@@ -218,10 +216,10 @@ class _AndroidTvRemoteScreenState extends State<AndroidTvRemoteScreen> {
   Widget _buildPhoneControls(Set<RemoteCapability> capabilities) {
     return Column(
       children: [
-        _directionalPad(),
-        const SizedBox(height: 24),
+        _directionalPad(maxDiameter: 300),
+        const SizedBox(height: 20),
         _navigationButtons(),
-        const SizedBox(height: 24),
+        const SizedBox(height: 22),
         _appShortcuts(capabilities),
         const SizedBox(height: 28),
         _mediaControls(capabilities),
@@ -402,53 +400,93 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AdaptiveContent(
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(tablet ? 20 : 4, 4, tablet ? 20 : 4, 0),
-        child: Row(
-          children: [
-            IconButton(
-              tooltip: 'Close remote',
-              onPressed: onClose,
-              icon: const Icon(Icons.close),
-            ),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    deviceName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleMedium,
+    final colors = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colors.surface,
+        border: Border(bottom: BorderSide(color: colors.outlineVariant)),
+      ),
+      child: AdaptiveContent(
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(tablet ? 20 : 4, 8, tablet ? 20 : 8, 8),
+          child: Row(
+            children: [
+              IconButton(
+                tooltip: 'Back to devices',
+                onPressed: onClose,
+                icon: const Icon(Icons.arrow_back_rounded),
+              ),
+              Container(
+                width: 42,
+                height: 42,
+                margin: const EdgeInsets.only(right: 10),
+                decoration: BoxDecoration(
+                  color: colors.primaryContainer,
+                  borderRadius: BorderRadius.circular(11),
+                ),
+                child: Icon(Icons.tv_rounded, color: colors.onPrimaryContainer),
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      deviceName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 3),
+                    _ConnectionStatus(state: state, error: error),
+                  ],
+                ),
+              ),
+              if (state == RemoteConnectionState.error) ...[
+                IconButton(
+                  tooltip: 'Retry connection',
+                  onPressed: onRetry,
+                  icon: const Icon(Icons.refresh_rounded),
+                ),
+              ],
+              IconButton(
+                tooltip: 'Power',
+                onPressed: state == RemoteConnectionState.connected && showPower
+                    ? onPower
+                    : null,
+                icon: const Icon(Icons.power_settings_new_rounded),
+                style: IconButton.styleFrom(
+                  backgroundColor: colors.surfaceContainerHigh,
+                  shape: const CircleBorder(),
+                ),
+              ),
+              PopupMenuButton<String>(
+                tooltip: 'More options',
+                onSelected: (value) {
+                  if (value == 'pair') onPairAgain?.call();
+                  if (value == 'forget') onForget();
+                },
+                itemBuilder: (context) => [
+                  if (onPairAgain != null)
+                    const PopupMenuItem(
+                      value: 'pair',
+                      child: ListTile(
+                        leading: Icon(Icons.link_rounded),
+                        title: Text('Pair again'),
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                  const PopupMenuItem(
+                    value: 'forget',
+                    child: ListTile(
+                      leading: Icon(Icons.delete_outline_rounded),
+                      title: Text('Forget this TV'),
+                      contentPadding: EdgeInsets.zero,
+                    ),
                   ),
-                  const SizedBox(height: 3),
-                  _ConnectionStatus(state: state, error: error),
                 ],
               ),
-            ),
-            if (state == RemoteConnectionState.error) ...[
-              TextButton(onPressed: onRetry, child: const Text('Retry')),
-              if (onPairAgain != null)
-                TextButton(onPressed: onPairAgain, child: const Text('Pair')),
             ],
-            IconButton(
-              tooltip: 'Power',
-              onPressed: state == RemoteConnectionState.connected && showPower
-                  ? onPower
-                  : null,
-              icon: const Icon(Icons.power_settings_new),
-            ),
-            PopupMenuButton<String>(
-              tooltip: 'More options',
-              onSelected: (value) {
-                if (value == 'forget') onForget();
-              },
-              itemBuilder: (context) => const [
-                PopupMenuItem(value: 'forget', child: Text('Forget this TV')),
-              ],
-            ),
-          ],
+          ),
         ),
       ),
     );

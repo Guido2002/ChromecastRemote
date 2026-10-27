@@ -78,6 +78,7 @@ void main() {
         tester.getSize(find.byKey(const ValueKey('pad'))),
         const Size(370, 370),
       );
+      expect(find.text('OK'), findsOneWidget);
     },
   );
 
