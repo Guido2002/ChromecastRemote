@@ -32,6 +32,9 @@ in one list, labelled by the protocol they support.
   compact blue-black controls, clearer device cards and a focused settings view.
 - **Structured home navigation** — Dedicated Devices, Remote, Apps and Settings
   destinations, with Nearby/Saved device modes and a searchable app library.
+- **Now Playing and app details** — Foreground app status and artwork on
+  Android TV, real Cast metadata/artwork when available, plus detailed app
+  pages with launch method and persistent remote favorites.
 
 Some controls depend on the connected device and the application currently running on the TV.
 

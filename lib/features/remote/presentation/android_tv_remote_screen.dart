@@ -8,6 +8,7 @@ import '../../../core/protocol/android_tv/android_key_codes.dart';
 import '../../../shared/presentation/adaptive_layout.dart';
 import '../../../shared/presentation/app_motion.dart';
 import '../../apps/presentation/app_shortcuts_section.dart';
+import '../../apps/presentation/tv_app_icon.dart';
 import '../../apps/tv_app.dart';
 import '../../pairing/presentation/pairing_screen.dart';
 import '../android_tv_remote_controller.dart';
@@ -220,6 +221,8 @@ class _AndroidTvRemoteScreenState extends State<AndroidTvRemoteScreen> {
         const SizedBox(height: 20),
         _navigationButtons(),
         const SizedBox(height: 22),
+        _nowPlaying(capabilities),
+        const SizedBox(height: 22),
         _appShortcuts(capabilities),
         const SizedBox(height: 28),
         _mediaControls(capabilities),
@@ -258,6 +261,8 @@ class _AndroidTvRemoteScreenState extends State<AndroidTvRemoteScreen> {
           flex: 6,
           child: Column(
             children: [
+              TabletPanel(child: _nowPlaying(capabilities)),
+              const SizedBox(height: 24),
               TabletPanel(child: _appShortcuts(capabilities)),
               const SizedBox(height: 24),
               TabletPanel(child: _mediaControls(capabilities)),
@@ -326,6 +331,14 @@ class _AndroidTvRemoteScreenState extends State<AndroidTvRemoteScreen> {
         onLaunch: _launchApp,
       );
 
+  Widget _nowPlaying(Set<RemoteCapability> capabilities) => _NowPlayingCard(
+    packageName: _activePackage,
+    connected: _connected,
+    mediaEnabled:
+        _connected && capabilities.contains(RemoteCapability.mediaControl),
+    onPlayPause: () => _send(RemoteCommand.playPause),
+  );
+
   Widget _mediaControls(Set<RemoteCapability> capabilities) =>
       _MediaControlsSection(
         enabled:
@@ -371,6 +384,117 @@ class _AndroidTvRemoteScreenState extends State<AndroidTvRemoteScreen> {
     'left' => RemoteCommand.left,
     _ => RemoteCommand.right,
   };
+}
+
+class _NowPlayingCard extends StatelessWidget {
+  const _NowPlayingCard({
+    required this.packageName,
+    required this.connected,
+    required this.mediaEnabled,
+    required this.onPlayPause,
+  });
+
+  final String? packageName;
+  final bool connected;
+  final bool mediaEnabled;
+  final VoidCallback onPlayPause;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final app = matchByPackage(catalogApps, packageName);
+    final hasForegroundApp = packageName != null && packageName!.isNotEmpty;
+    final displayName =
+        app?.name ??
+        (hasForegroundApp
+            ? _friendlyPackageName(packageName!)
+            : 'Waiting for TV activity');
+
+    return AnimatedSwitcher(
+      duration: AppMotion.standard,
+      child: Card(
+        key: ValueKey(packageName ?? 'no-app'),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              if (app != null)
+                TvAppIcon(app: app, size: 52, borderRadius: 14)
+              else
+                Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: colors.primaryContainer,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(
+                    hasForegroundApp
+                        ? Icons.tv_rounded
+                        : Icons.hourglass_empty_rounded,
+                    color: colors.onPrimaryContainer,
+                  ),
+                ),
+              const SizedBox(width: 13),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'NOW PLAYING',
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: colors.onSurfaceVariant,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.1,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      displayName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      hasForegroundApp
+                          ? 'Active on TV · playback state unavailable'
+                          : connected
+                          ? 'Open an app on your TV'
+                          : 'Connect to read the foreground app',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colors.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton.filledTonal(
+                tooltip: 'Play / pause',
+                onPressed: mediaEnabled && hasForegroundApp
+                    ? onPlayPause
+                    : null,
+                icon: const Icon(Icons.play_circle_outline_rounded),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+String _friendlyPackageName(String packageName) {
+  if (packageName.contains('launcher') || packageName.contains('tvlauncher')) {
+    return 'TV Home';
+  }
+  final segment = packageName.split('.').last;
+  if (segment.isEmpty) return packageName;
+  return '${segment[0].toUpperCase()}${segment.substring(1)}';
 }
 
 class _Header extends StatelessWidget {

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../shared/presentation/adaptive_layout.dart';
 import '../app_shortcut_store.dart';
 import '../tv_app.dart';
+import 'app_detail_screen.dart';
 import 'tv_app_icon.dart';
 
 class AppLibraryView extends StatefulWidget {
@@ -40,6 +41,19 @@ class _AppLibraryViewState extends State<AppLibraryView> {
     next.contains(app.id) ? next.remove(app.id) : next.add(app.id);
     setState(() => _selected = next);
     await widget.store.saveSelectedIds(next);
+  }
+
+  Future<void> _openDetails(TvApp app) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => AppDetailScreen(
+          app: app,
+          store: widget.store,
+          onOpenOnTv: widget.onChooseDevice,
+        ),
+      ),
+    );
+    await _load();
   }
 
   @override
@@ -155,7 +169,7 @@ class _AppLibraryViewState extends State<AppLibraryView> {
                         app: apps[index],
                         selected: _selected.contains(apps[index].id),
                         onToggle: () => _toggle(apps[index]),
-                        onOpen: widget.onChooseDevice,
+                        onOpen: () => _openDetails(apps[index]),
                       ),
                     )
                   : ListView.separated(
@@ -166,7 +180,7 @@ class _AppLibraryViewState extends State<AppLibraryView> {
                         app: apps[index],
                         selected: _selected.contains(apps[index].id),
                         onToggle: () => _toggle(apps[index]),
-                        onOpen: widget.onChooseDevice,
+                        onOpen: () => _openDetails(apps[index]),
                       ),
                     ),
             ),

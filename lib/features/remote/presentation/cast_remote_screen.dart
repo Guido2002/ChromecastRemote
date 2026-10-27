@@ -298,20 +298,7 @@ class _MediaControlsCardState extends State<_MediaControlsCard> {
               children: [
                 Row(
                   children: [
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(15),
-                        color: colors.primaryContainer,
-                        border: Border.all(color: colors.outlineVariant),
-                      ),
-                      child: Icon(
-                        mediaLoaded ? Icons.graphic_eq : Icons.ondemand_video,
-                        color: colors.onPrimaryContainer,
-                        size: 25,
-                      ),
-                    ),
+                    _MediaArtwork(info: info),
                     const SizedBox(width: 13),
                     Expanded(
                       child: Column(
@@ -480,6 +467,63 @@ class _MediaControlsCardState extends State<_MediaControlsCard> {
           },
         ),
       ),
+    );
+  }
+}
+
+class _MediaArtwork extends StatelessWidget {
+  const _MediaArtwork({required this.info});
+
+  final GoogleCastMediaInformation? info;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final images = info?.metadata?.images;
+    Widget fallback() => Container(
+      color: colors.primaryContainer,
+      alignment: Alignment.center,
+      child: Icon(
+        info == null ? Icons.ondemand_video : Icons.graphic_eq,
+        color: colors.onPrimaryContainer,
+        size: 25,
+      ),
+    );
+
+    Widget child = fallback();
+    if (images != null && images.isNotEmpty) {
+      final sorted = List<GoogleCastImage>.from(images)
+        ..sort((a, b) {
+          final aSize = (a.width ?? 0) * (a.height ?? 0);
+          final bSize = (b.width ?? 0) * (b.height ?? 0);
+          return bSize.compareTo(aSize);
+        });
+      child = Image.network(
+        sorted.first.url.toString(),
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => fallback(),
+        loadingBuilder: (context, image, progress) => progress == null
+            ? image
+            : Container(
+                color: colors.primaryContainer,
+                alignment: Alignment.center,
+                child: const SizedBox.square(
+                  dimension: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+      );
+    }
+
+    return Container(
+      width: 52,
+      height: 52,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: colors.outlineVariant),
+      ),
+      child: child,
     );
   }
 }
