@@ -78,6 +78,8 @@ class AndroidTvRemoteController implements RemoteController {
       },
       if (features & AndroidTvFeatures.power != 0) RemoteCapability.power,
       if (features & AndroidTvFeatures.volume != 0) RemoteCapability.volume,
+      if (features & AndroidTvFeatures.appLink != 0)
+        RemoteCapability.appLaunch,
     };
   }
 
@@ -161,6 +163,20 @@ class AndroidTvRemoteController implements RemoteController {
     if (!capabilities.contains(RemoteCapability.navigation)) return;
     _client.sendKey(keyCode);
   }
+
+  /// Launches an app on the TV via an app link (e.g.
+  /// `market://launch?id=<package>`). Requires the APP_LINK feature.
+  void launchAppLink(String link) {
+    if (!capabilities.contains(RemoteCapability.appLaunch)) return;
+    _client.launchAppLink(link);
+  }
+
+  /// Package name of the app currently in the foreground on the TV, when the
+  /// device reports it (IME feature). Null when unknown.
+  String? get currentApp => _client.currentApp;
+
+  /// Updates when the foreground app on the TV changes.
+  Stream<String> get currentAppUpdates => _client.currentAppUpdates;
 
   /// Starts key repetition for a held button (volume / D-pad).
   void startLongPress(RemoteCommand command) {

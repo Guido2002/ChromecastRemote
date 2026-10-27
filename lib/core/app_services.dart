@@ -1,3 +1,4 @@
+import '../features/apps/app_shortcut_store.dart';
 import '../features/discovery/discovery_service.dart';
 import '../features/pairing/paired_device_store.dart';
 import 'protocol/android_tv/certificate_manager.dart';
@@ -19,4 +20,7 @@ class AppServices {
       PairedDeviceStore(store: secureStore);
 
   late final DiscoveryService discovery = DiscoveryService();
+
+  late final AppShortcutStore appShortcuts =
+      AppShortcutStore(store: secureStore);
 }

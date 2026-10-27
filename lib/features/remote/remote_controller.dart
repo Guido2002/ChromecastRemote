@@ -41,6 +41,9 @@ enum RemoteCapability {
   power,
   volume,
   mediaControl,
+
+  /// Launching apps via app links (APP_LINK feature).
+  appLaunch,
 }
 
 /// Abstraction over the per-protocol remote implementations.

@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../core/app_services.dart';
 import '../../../core/protocol/android_tv/android_key_codes.dart';
+import '../../apps/presentation/app_shortcuts_section.dart';
 import '../../pairing/presentation/pairing_screen.dart';
 import '../android_tv_remote_controller.dart';
 import '../remote_controller.dart';
@@ -25,14 +27,20 @@ class _AndroidTvRemoteScreenState extends State<AndroidTvRemoteScreen> {
   AndroidTvRemoteController get _controller => widget.controller;
 
   StreamSubscription<RemoteConnectionState>? _stateSubscription;
+  StreamSubscription<String>? _appSubscription;
   RemoteConnectionState _state = RemoteConnectionState.disconnected;
+  String? _activePackage;
 
   @override
   void initState() {
     super.initState();
     _state = _controller.connectionState;
+    _activePackage = _controller.currentApp;
     _stateSubscription = _controller.connectionStates.listen((state) {
       if (mounted) setState(() => _state = state);
+    });
+    _appSubscription = _controller.currentAppUpdates.listen((package) {
+      if (mounted) setState(() => _activePackage = package);
     });
     unawaited(_controller.connect());
   }
@@ -40,6 +48,7 @@ class _AndroidTvRemoteScreenState extends State<AndroidTvRemoteScreen> {
   @override
   void dispose() {
     _stateSubscription?.cancel();
+    _appSubscription?.cancel();
     super.dispose();
   }
 
@@ -165,6 +174,15 @@ class _AndroidTvRemoteScreenState extends State<AndroidTvRemoteScreen> {
                               .sendRawKey(AndroidKeyCodes.search),
                         ),
                       ],
+                    ),
+                    const SizedBox(height: 24),
+                    AppShortcutsSection(
+                      store: AppServices.instance.appShortcuts,
+                      enabled: _connected &&
+                          capabilities.contains(RemoteCapability.appLaunch),
+                      activePackage: _activePackage,
+                      onLaunch: (app) =>
+                          _controller.launchAppLink(app.launchUrl),
                     ),
                     const SizedBox(height: 28),
                     _MediaControlsSection(
