@@ -13,6 +13,30 @@ A universal Flutter remote for TVs on your local Wi-Fi network:
 Both device types are discovered automatically on the local network and shown
 in one list, labelled by the protocol they support.
 
+## Features
+
+- **Device discovery** — Find Chromecast and Google TV devices on the same Wi-Fi network.
+- **Google TV remote** — Navigate using a D-pad, select, back and home buttons.
+- **Media controls** — Play, pause, skip tracks, rewind and fast-forward in supported apps.
+- **Volume controls** — Adjust volume or mute the connected device.
+- **Device pairing** — Pair with Google TV using the code displayed on your television.
+- **Automatic reconnection** — Reconnect to previously paired devices.
+- **Chromecast support** — Control supported Google Cast media sessions on older Chromecast devices.
+- **Dark interface** — Simple remote layout inspired by physical TV remotes.
+
+Some controls depend on the connected device and the application currently running on the TV.
+
+## Supported Devices
+
+| Device | Remote navigation | Media controls |
+|---|---|---|
+| Chromecast with Google TV (4K) | Yes | Yes |
+| Chromecast with Google TV (HD) | Yes | Yes |
+| Google TV Streamer | Yes | Yes |
+| Compatible Android TV devices | Yes | Yes |
+| Chromecast (1st–3rd generation) | No | Cast sessions |
+| Chromecast Ultra | No | Cast sessions |
+
 ## Requirements
 
 - Flutter 3.44 or later, Dart 3.12 or later
@@ -77,6 +101,8 @@ manifest must be kept if you regenerate `android/`.
   on-screen code. The client certificate is generated once and stored in
   platform secure storage (Keychain / EncryptedSharedPreferences); the TV's
   certificate fingerprint is pinned after pairing and verified on reconnect.
+- Google TV / Android TV uses TCP port 6467 for pairing and TCP port 6466
+  for remote commands.
 - Remote commands use the Android TV Remote Protocol v2 `RemoteMessage`
   protobuf messages (key inject, ping/pong keep-alive, configure/set-active
   handshake) — see `protos/`. Regenerate the Dart code with:
@@ -99,6 +125,7 @@ manifest must be kept if you regenerate `android/`.
   app (e.g. Netflix ignores Next/Previous).
 - The assistant button sends KEYCODE_SEARCH; voice audio streaming is not
   implemented.
+- Google TV remote connectivity relies on a protocol that is not provided as a stable public remote-control SDK.
 
 ## Run
 
@@ -122,3 +149,22 @@ Google TV / Chromecast on the same network and cannot be covered by automated
 tests.
 
 The app uses the default Google Cast receiver application ID.
+
+## Built With
+
+- Flutter
+- Dart
+- Android TV Remote Protocol v2
+- Google Cast
+- mDNS / DNS-SD
+- Protocol Buffers
+
+## Disclaimer
+
+This is an independent project and is not affiliated with or endorsed by Google.
+
+Chromecast, Google TV and Android TV are trademarks of Google LLC.
+
+## License
+
+See the `LICENSE` file for details.
