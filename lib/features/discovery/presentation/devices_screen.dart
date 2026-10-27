@@ -10,6 +10,7 @@ import '../../pairing/presentation/pairing_screen.dart';
 import '../../remote/android_tv_remote_controller.dart';
 import '../../remote/presentation/android_tv_remote_screen.dart';
 import '../../remote/presentation/cast_remote_screen.dart';
+import '../../update/presentation/update_actions.dart';
 
 /// Home screen: live list of Google TV / Android TV and Chromecast devices
 /// found on the local Wi-Fi network.
@@ -36,6 +37,11 @@ class _DevicesScreenState extends State<DevicesScreen> {
     });
     unawaited(_startScan());
     unawaited(_reconnectToLastDevice());
+    // Silent update check once per launch; only speaks up when a newer
+    // release exists on GitHub.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(checkForAppUpdate(context, userInitiated: false));
+    });
   }
 
   /// Reconnects to the last used Google TV once per app launch. Failures are
@@ -186,6 +192,11 @@ class _DevicesScreenState extends State<DevicesScreen> {
       appBar: AppBar(
         title: const Text('Devices'),
         actions: [
+          IconButton(
+            tooltip: 'Check for updates',
+            onPressed: () => checkForAppUpdate(context, userInitiated: true),
+            icon: const Icon(Icons.system_update_alt),
+          ),
           IconButton(
             tooltip: 'Scan again',
             onPressed: _scanning ? null : _rescan,

@@ -112,6 +112,14 @@ manifest must be kept if you regenerate `android/`.
   appears as two labelled entries; the protocols share no reliable identifier,
   so entries are never merged by name.
 
+### Updates
+
+The app checks GitHub Releases for a newer version. An update icon in the
+Devices screen runs a manual check; a silent check also runs once at launch
+and only speaks up when a newer release exists. Publishing a GitHub release
+with a tag like `v0.2.0` (and the APK attached) makes the update appear in
+the app; tapping "Get update" opens the release page in the browser.
+
 ### Limitations
 
 - Classic Chromecasts have **no system navigation** — the Cast SDK controls
