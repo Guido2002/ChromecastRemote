@@ -2,12 +2,26 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+/// A downloadable APK attached to a GitHub release.
+class ApkAsset {
+  const ApkAsset({
+    required this.name,
+    required this.downloadUrl,
+    required this.sizeBytes,
+  });
+
+  final String name;
+  final Uri downloadUrl;
+  final int sizeBytes;
+}
+
 /// Information about the latest published GitHub release.
 class AppRelease {
   const AppRelease({
     required this.version,
     required this.name,
     required this.url,
+    this.apkAsset,
   });
 
   /// Version parsed from the release tag (leading "v" stripped).
@@ -18,6 +32,9 @@ class AppRelease {
 
   /// Web page of the release, where the APK can be downloaded.
   final Uri url;
+
+  /// The first APK attached to the release, if any.
+  final ApkAsset? apkAsset;
 }
 
 /// Outcome of an update check.
@@ -56,7 +73,26 @@ AppRelease parseLatestRelease(Map<String, dynamic> json) {
         ? json['name'] as String
         : tag,
     url: Uri.parse(htmlUrl),
+    apkAsset: findApkAsset(json['assets']),
   );
+}
+
+/// Picks the first `.apk` asset from a GitHub release `assets` list.
+ApkAsset? findApkAsset(Object? assets) {
+  if (assets is! List) return null;
+  for (final asset in assets) {
+    if (asset is! Map<String, dynamic>) continue;
+    final name = asset['name'];
+    final downloadUrl = asset['browser_download_url'];
+    if (name is! String || !name.toLowerCase().endsWith('.apk')) continue;
+    if (downloadUrl is! String || downloadUrl.isEmpty) continue;
+    return ApkAsset(
+      name: name,
+      downloadUrl: Uri.parse(downloadUrl),
+      sizeBytes: asset['size'] is int ? asset['size'] as int : 0,
+    );
+  }
+  return null;
 }
 
 /// Returns true when [latest] is a higher semantic version than [current].

@@ -116,9 +116,15 @@ manifest must be kept if you regenerate `android/`.
 
 The app checks GitHub Releases for a newer version. An update icon in the
 Devices screen runs a manual check; a silent check also runs once at launch
-and only speaks up when a newer release exists. Publishing a GitHub release
-with a tag like `v0.2.0` (and the APK attached) makes the update appear in
-the app; tapping "Get update" opens the release page in the browser.
+and only speaks up when a newer release exists.
+
+Publish a GitHub release with a tag like `v0.2.0` and attach the APK as a
+release asset. On Android the app downloads the APK itself with a progress
+indicator and hands it to the system package installer — Android still asks
+the user to confirm the install and, once, to allow installs from this app.
+The update APK must be signed with the same key as the installed app or
+Android refuses the install. On releases without an APK asset (and on iOS)
+the release page opens in the browser instead.
 
 ### Limitations
 

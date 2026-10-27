@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../update_checker.dart';
+import 'update_dialog.dart';
 
 /// Runs a GitHub release check and surfaces the result.
 ///
@@ -39,27 +39,9 @@ Future<void> checkForAppUpdate(
     case UpdateAvailable(:final release):
       await showDialog<void>(
         context: context,
-        builder: (context) => AlertDialog(
-          icon: const Icon(Icons.system_update_alt),
-          title: Text('Update available: ${release.name}'),
-          content: Text(
-            'You are running $currentVersion. Download the latest APK from '
-            'GitHub Releases and install it over the current app.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Later'),
-            ),
-            FilledButton.icon(
-              onPressed: () {
-                Navigator.of(context).pop();
-                launchUrl(release.url, mode: LaunchMode.externalApplication);
-              },
-              icon: const Icon(Icons.download),
-              label: const Text('Get update'),
-            ),
-          ],
+        builder: (context) => UpdateAvailableDialog(
+          release: release,
+          currentVersion: currentVersion,
         ),
       );
     case UpToDate():
