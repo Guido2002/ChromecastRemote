@@ -6,6 +6,7 @@ import 'package:chromecast_remote/features/apps/presentation/app_shortcuts_secti
 import 'package:chromecast_remote/features/apps/tv_app.dart';
 import 'package:chromecast_remote/shared/presentation/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -73,6 +74,20 @@ void main() {
         ),
       );
     });
+
+    test('every catalog app has a bundled icon asset', () async {
+      final paths = <String>{};
+      for (final app in catalogApps) {
+        final path = app.iconAssetPath;
+        expect(path, isNotNull, reason: app.id);
+        expect(paths.add(path!), isTrue, reason: 'duplicate icon: $path');
+        expect(
+          (await rootBundle.load(path)).lengthInBytes,
+          greaterThan(0),
+          reason: app.id,
+        );
+      }
+    });
   });
 
   group('TvApp.customEntry', () {
@@ -84,6 +99,7 @@ void main() {
       expect(app.launchUrl, 'netflix://');
       expect(app.packageName, 'com.netflix.ninja');
       expect(app.custom, isTrue);
+      expect(app.iconAssetPath, 'assets/app_icons/netflix.webp');
     });
 
     test('keeps the package fallback when no deep link is known', () {
@@ -91,6 +107,7 @@ void main() {
       expect(app.launchUrl, 'market://launch?id=org.xbmc.kodi');
       expect(app.packageName, 'org.xbmc.kodi');
       expect(app.custom, isTrue);
+      expect(app.iconAssetPath, isNull);
     });
 
     test('keeps deep links as-is', () {

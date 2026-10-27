@@ -18,7 +18,7 @@ in one list, labelled by the protocol they support.
 - **Device discovery** — Find Chromecast and Google TV devices on the same Wi-Fi network.
 - **Google TV remote** — Navigate using a D-pad, select, back and home buttons.
 - **Media controls** — Play, pause, skip tracks, rewind and fast-forward in supported apps.
-- **App shortcuts** — Launch TV apps (Netflix, YouTube, Spotify, Videoland, NPO Start, Prime Video, Disney+ and more) from the remote, with the active app highlighted when the TV reports it. Custom shortcuts (package name or deep link) can be added in the manage sheet.
+- **App shortcuts** — Launch TV apps (Netflix, YouTube, Spotify, Videoland, NPO Start, Prime Video, Disney+ and more) from the remote, with official app artwork and the active app highlighted when the TV reports it. Custom shortcuts (package name or deep link) can be added in the manage sheet.
 - **Volume controls** — Adjust volume or mute the connected device.
 - **Device pairing** — Pair with Google TV using the code displayed on your television.
 - **Automatic reconnection** — Reconnect to previously paired devices.

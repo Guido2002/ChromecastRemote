@@ -202,16 +202,13 @@ class _AppShortcutButton extends StatelessWidget {
                           color: colors.secondary,
                           size: tablet ? 30 : 26,
                         )
-                      : CircleAvatar(
-                          key: const ValueKey('initial'),
-                          radius: tablet ? 20 : 17,
-                          backgroundColor: colors.primaryContainer,
-                          child: Text(
-                            app.name.characters.first.toUpperCase(),
-                            style: TextStyle(
-                              color: colors.onPrimaryContainer,
-                              fontWeight: FontWeight.w700,
-                            ),
+                      : Opacity(
+                          key: ValueKey('app-icon-${app.id}'),
+                          opacity: enabled ? 1 : 0.42,
+                          child: _AppIcon(
+                            app: app,
+                            size: tablet ? 40 : 34,
+                            borderRadius: tablet ? 12 : 10,
                           ),
                         ),
                 ),
@@ -233,6 +230,52 @@ class _AppShortcutButton extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _AppIcon extends StatelessWidget {
+  const _AppIcon({
+    required this.app,
+    required this.size,
+    required this.borderRadius,
+  });
+
+  final TvApp app;
+  final double size;
+  final double borderRadius;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final fallback = Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: colors.primaryContainer,
+        borderRadius: BorderRadius.circular(borderRadius),
+      ),
+      child: Text(
+        app.name.characters.first.toUpperCase(),
+        style: TextStyle(
+          color: colors.onPrimaryContainer,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+    final assetPath = app.iconAssetPath;
+    if (assetPath == null) return fallback;
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(borderRadius),
+      child: Image.asset(
+        assetPath,
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => fallback,
       ),
     );
   }
@@ -385,10 +428,11 @@ class _ManageShortcutsSheetState extends State<_ManageShortcutsSheet> {
               children: [
                 for (final app in catalogApps)
                   SwitchListTile(
+                    secondary: _AppIcon(app: app, size: 42, borderRadius: 12),
                     title: Text(app.name),
                     subtitle: Text(
                       app.launchUrl.startsWith('market://')
-                          ? 'May require selecting Open in the Play Store'
+                          ? 'Opens automatically via the Play Store'
                           : app.packageName ?? '',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: colors.onSurfaceVariant,
@@ -410,6 +454,7 @@ class _ManageShortcutsSheetState extends State<_ManageShortcutsSheet> {
                   ),
                   for (final app in _custom)
                     ListTile(
+                      leading: _AppIcon(app: app, size: 42, borderRadius: 12),
                       title: Text(app.name),
                       subtitle: Text(
                         app.launchUrl,

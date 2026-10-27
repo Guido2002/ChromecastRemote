@@ -39,6 +39,15 @@ class TvApp {
   bool get requiresStoreOpenConfirmation =>
       id == 'npo-start' && launchUrl.startsWith('market://launch?id=');
 
+  /// Bundled icon for catalog apps and custom shortcuts that use a known
+  /// catalog package. Unknown custom apps deliberately fall back to initials.
+  String? get iconAssetPath {
+    final catalogId = custom
+        ? matchByPackage(catalogApps, packageName)?.id
+        : id;
+    return catalogId == null ? null : 'assets/app_icons/$catalogId.webp';
+  }
+
   factory TvApp.customEntry({required String name, required String target}) {
     final trimmed = target.trim();
     // Prefer the catalog's direct link for known packages. Explicit deep
