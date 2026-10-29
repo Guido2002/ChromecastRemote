@@ -45,6 +45,14 @@ in one list, labelled by the protocol they support.
 - **Android quick access** — Add TV remote to Quick Settings from Settings, or
   long-press the launcher icon and choose its remote shortcut.
 
+New in [v0.11.0](https://github.com/Guido2002/ChromecastRemote/releases/tag/v0.11.0):
+
+- [Phone keyboard preview](docs/KEYBOARD_PREVIEW.md) with explicit Send and private drafts.
+- Per-TV eyes-up mode, household control setup, manual room suggestions, and reported power/volume freshness.
+- YouTube and Spotify destination templates; optional Home Assistant TV/audio routines.
+- Cast pause/seek capability checks and live seek windows.
+- Accessible directional targets and local measurements with explicit copy/clear.
+
 Some controls depend on the connected device and the application currently running on the TV.
 
 ## Supported Devices
@@ -70,10 +78,9 @@ Some controls depend on the connected device and the application currently runni
 flutter pub get
 ```
 
-For a fresh clone without generated platform folders, run
-`flutter create --platforms=android,ios .` once before building. Keep the Cast
-entries and the network permissions in the Android manifest when regenerating
-platform files.
+Platform projects are included. Android release builds require private signing configuration;
+see [release readiness](docs/RELEASE_READINESS.md) and `android/key.properties.example`.
+Do not regenerate platform folders over the native integrations.
 
 ### Android permissions
 
@@ -81,23 +88,11 @@ platform files.
 `ACCESS_NETWORK_STATE` and `CHANGE_WIFI_MULTICAST_STATE` (required for mDNS
 discovery of `_androidtvremote2._tcp` services).
 
-### iOS local network access
+### iOS status
 
-Add these entries inside the `<dict>` in `ios/Runner/Info.plist`:
-
-```xml
-<key>NSLocalNetworkUsageDescription</key>
-<string>Chromecast Remote uses your local network to discover and control TVs.</string>
-<key>NSBonjourServices</key>
-<array>
-    <string>_CC1AD845._googlecast._tcp</string>
-    <string>_googlecast._tcp</string>
-    <string>_androidtvremote2._tcp</string>
-</array>
-```
-
-The Cast options provider and media notification service in the Android
-manifest must be kept if you regenerate `android/`.
+An iOS 15 project includes local-network/Bonjour declarations, branded icons and the
+Cast capability bridge. It has not been compiled or signed because this workspace
+has no Xcode. No iOS binary is released. See [build and validation steps](docs/RELEASE_READINESS.md).
 
 ## Use the remote
 
@@ -158,8 +153,10 @@ the release page opens in the browser instead.
   section uses a combined Play/Pause toggle and shows no playback metadata.
   A transmitted key event is not guaranteed to be handled by the foreground
   app (e.g. Netflix ignores Next/Previous).
-- Search on TV sends KEYCODE_SEARCH. Voice audio streaming and phone keyboard
-  input are not implemented.
+- Search on TV sends KEYCODE_SEARCH. Voice audio streaming is not implemented.
+  The keyboard preview sends explicit text requests; it does not
+  mirror TV text or synchronize cursors, and it requires compatible input-session
+  reporting. It is included as preview functionality in v0.11.0.
 - App shortcuts use direct app links to open installed apps without visiting
   the Play Store. Known package names in custom shortcuts use the same links,
   including previously saved shortcuts. Apps without a verified deep link
@@ -187,9 +184,8 @@ flutter build apk --debug
 Unit tests cover the varint framing codec, protobuf wire serialization, the
 pairing-secret derivation (with a known-answer vector from the Python
 reference implementation), certificate public-key extraction, and the paired
-device store. Pairing and remote control themselves require a physical
-Google TV / Chromecast on the same network and cannot be covered by automated
-tests.
+device store. Local TLS tests cover protocol exchanges; physical pairing and TV/app behavior still require
+a Google TV / Chromecast on the same network.
 
 The app uses the default Google Cast receiver application ID.
 

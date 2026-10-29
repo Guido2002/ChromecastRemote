@@ -1,0 +1,6 @@
+# Copy to android/key.properties and keep the real file private.
+# Release builds require this configuration; there is no debug-key fallback.
+storeFile=/absolute/path/to/release.p12
+storePassword=YOUR_PRIVATE_STORE_PASSWORD
+keyPassword=YOUR_PRIVATE_KEY_PASSWORD
+keyAlias=chromecast-release

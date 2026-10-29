@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../shared/presentation/adaptive_layout.dart';
 import '../app_shortcut_store.dart';
 import '../tv_app.dart';
+import '../destination_templates.dart';
 import 'app_detail_screen.dart';
 import 'tv_app_icon.dart';
 
@@ -12,12 +13,14 @@ class AppLibraryView extends StatefulWidget {
     required this.onChooseDevice,
     this.connectedDeviceName,
     this.onLaunchApp,
+    this.onRoutines,
     super.key,
   });
 
   final AppShortcutStore store;
   final VoidCallback onChooseDevice;
   final String? connectedDeviceName;
+  final VoidCallback? onRoutines;
   final Future<bool> Function(TvApp app)? onLaunchApp;
 
   @override
@@ -229,6 +232,12 @@ class _AppLibraryViewState extends State<AppLibraryView> {
                     style: Theme.of(context).textTheme.labelLarge,
                   ),
                 ),
+                if (widget.onRoutines != null)
+                  IconButton(
+                    tooltip: 'TV and audio routines',
+                    onPressed: widget.onRoutines,
+                    icon: const Icon(Icons.auto_awesome_motion_outlined),
+                  ),
                 IconButton(
                   tooltip: 'Order favorites',
                   onPressed: _selected.length < 2 ? null : _reorder,
@@ -319,6 +328,7 @@ class _DestinationDialog extends StatefulWidget {
 
 class _DestinationDialogState extends State<_DestinationDialog> {
   final form = GlobalKey<FormState>();
+  DestinationProvider provider = DestinationProvider.custom;
   final name = TextEditingController();
   final target = TextEditingController();
 
@@ -338,6 +348,29 @@ class _DestinationDialogState extends State<_DestinationDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            DropdownButtonFormField<DestinationProvider>(
+              initialValue: provider,
+              decoration: const InputDecoration(labelText: 'Destination type'),
+              items: const [
+                DropdownMenuItem(
+                  value: DestinationProvider.custom,
+                  child: Text('Custom app or link'),
+                ),
+                DropdownMenuItem(
+                  value: DestinationProvider.youtube,
+                  child: Text('YouTube video'),
+                ),
+                DropdownMenuItem(
+                  value: DestinationProvider.spotify,
+                  child: Text('Spotify music'),
+                ),
+              ],
+              onChanged: (value) => setState(() {
+                provider = value ?? DestinationProvider.custom;
+                target.clear();
+              }),
+            ),
+            const SizedBox(height: 12),
             TextFormField(
               controller: name,
               autofocus: true,
@@ -359,28 +392,20 @@ class _DestinationDialogState extends State<_DestinationDialog> {
                 labelText: 'App link or package name',
                 hintText: 'https://… or com.example.tv',
                 helperText:
-                    'The TV must support the link. Package shortcuts may open the Play Store.',
+                    'Provider links are formatted here; test them on your TV. Opening an app does not confirm that content played.',
                 helperMaxLines: 3,
               ),
               validator: (value) {
-                final text = value?.trim() ?? '';
-                final package = RegExp(
-                  r'^[a-zA-Z][a-zA-Z0-9_]*(\.[a-zA-Z0-9_]+)+$',
-                ).hasMatch(text);
-                final uri = Uri.tryParse(text);
-                final link =
-                    uri != null &&
-                    uri.hasScheme &&
-                    uri.userInfo.isEmpty &&
-                    ![
-                      'file',
-                      'javascript',
-                      'data',
-                      'intent',
-                    ].contains(uri.scheme.toLowerCase());
-                return package || link
-                    ? null
-                    : 'Enter a valid app link or package name.';
+                try {
+                  DestinationTemplates.create(
+                    provider,
+                    name.text.trim().isEmpty ? 'Destination' : name.text,
+                    value ?? '',
+                  );
+                  return null;
+                } on FormatException catch (error) {
+                  return error.message;
+                }
               },
             ),
           ],
@@ -397,7 +422,7 @@ class _DestinationDialogState extends State<_DestinationDialog> {
           if (form.currentState!.validate()) {
             Navigator.pop(
               context,
-              TvApp.customEntry(name: name.text, target: target.text),
+              DestinationTemplates.create(provider, name.text, target.text),
             );
           }
         },

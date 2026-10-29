@@ -2,9 +2,27 @@
 
 Date: 29 October 2026
 
-This document tracks delivery against [the app upgrade plan](APP_UPGRADE_PLAN.md). The core software upgrade and supporting improvements are implemented. The complete roadmap is not finished: physical-device validation, research-dependent features, and production release preparation remain separate gates.
+Release: **v0.11.0, Android build 13**. This tracks [the upgrade plan](APP_UPGRADE_PLAN.md). All proposed feature areas now have software implementations, including explicitly limited experimental features. Physical-device validation, user research, and iOS build verification remain open; they are not completed by an Android release.
 
-Release package: [v0.10.0 notes](releases/v0.10.0.md), Android version 0.10.0, build 12.
+See [release notes](releases/v0.11.0.md), [release readiness](RELEASE_READINESS.md), and [keyboard preview](KEYBOARD_PREVIEW.md).
+
+## Added in v0.11.0
+
+| Area | Delivered behavior | Evidence and limits |
+|---|---|---|
+| F03 keyboard | Explicit Send and separate Enter; masked drafts; session tokens; clears on app/field/connection/background changes; Unicode batch editing | Protocol, local TLS, privacy, and widget tests. Preview; no text mirroring, cursor synchronization, or physical-TV compatibility claim |
+| F06 eyes-up mode | Per-TV larger directional pad and hidden favorites, selected in control setup | Responsive widget checks and visual captures; accidental presses and glance frequency require user testing |
+| F07 household setup | Per-TV room, power/volume preferences, explicit volume test and user confirmation | Secure persistence and disabled-command tests; preferences do not discover HDMI/audio capabilities |
+| F08 destinations | YouTube video and Spotify track/album/playlist templates alongside custom links | Link normalization tests; provider authentication and actual content playback remain device-dependent |
+| F09 room suggestions | Manual room filter; active/nearby/recent ordering of saved TVs | Deterministic ranking tests; no automatic room sensing or commands |
+| F10 routines | Optional Home Assistant integration: check volume support, request and verify volume, then launch a selected TV favorite | HTTP mock tests cover success, cancellation, wrong target, unsupported volume, and redirects; requires a configured server/token and real integration testing |
+| Cast capabilities | Native Android/iOS capability bridge, receiver/media identity matching, pause gating and clamped VOD/live seek windows | Android compilation and capability/range tests; iOS bridge is source-only until built with Xcode |
+| Reported state | Reported power/absolute volume with freshness labels and cleared state on disconnect | Fresh/stale/unknown tests; no inferred state or confirmed execution claim |
+| Accessibility | Distinct non-overlapping D-pad semantic targets, labels, focus order, contrast/size checks, reduced-motion Cast transitions | Automated Android accessibility guidelines pass; full TalkBack/VoiceOver journeys remain open |
+| Diagnostics | Bounded local measurements for first frame, connection attempts and command dispatch; explicit copy/clear | No TV identities, URLs, text or tokens; dispatch is not TV execution latency |
+| Connection reliability | Outgoing activity resets the inactivity timer | Local TLS regression test covers active transmission followed by idle timeout |
+| Signing | Explicit release signing with ignored private properties/PKCS12, preserving the previous certificate | Release signature matches v0.10.0; existing development-origin identity was imported, not rotated |
+| iOS foundation | iOS 15 project, icons, network declarations, plugin registration, Cast bridge and CocoaPods configuration | Plist validation only; Xcode absent, no iOS binary or support certification |
 
 ## Delivered changes
 
@@ -26,60 +44,46 @@ Release package: [v0.10.0 notes](releases/v0.10.0.md), Android version 0.10.0, b
 | A11Y01–A11Y03 | Explicit directional and volume semantics, visible pairing input, large-text remote checks, and reduced-motion route/shortcut behavior. | Automated checks; TalkBack, motor-accessibility, and comprehensive scaling review remain outstanding |
 | TECH01–TECH02 | Reused existing services. Serialized discovery and session operations. Saved endpoints refresh through discovery while preserving certificate pins. Re-pairing retains the saved device rather than silently forgetting it. | Session, endpoint, ordering, and persistence tests |
 | TECH03 | Android TV discovery can operate before or without Cast initialization; discovery backends report partial startup failure separately. | Android build and source review; fault-injection coverage remains future work |
-| TECH04–TECH05 | Unknown state remains explicit. Commands are not queued across reconnection. Incoming traffic, not outgoing key presses, drives connection liveness. Discovery pauses in the background and resumes deliberately. | Local TLS lifecycle tests and application lifecycle handling; real performance baselines remain outstanding |
+| TECH04–TECH05 | Unknown state remains explicit. Commands are not queued across reconnection. Idle traffic drives connection liveness; outgoing activity is included to avoid timing out active remotes. Discovery pauses in the background and resumes deliberately. | Local TLS lifecycle tests and application lifecycle handling; real performance baselines remain outstanding |
 | F01, F02, F04 | Immediate remote restoration, contextual recovery, and independent TV favorites. | Software implementation; user-task validation still required |
 | F05 | Android Quick Settings tile and launcher shortcut open the Remote destination. Settings can request tile addition on supported Android versions and provides manual instructions. | Android compilation, service registration, and warm-intent navigation checked in emulator |
-| F08 foundation | Personal app and content links can be named, favorited, ordered, opened, and deleted. Inputs reject invalid or inappropriate link forms. | Persistence and launch-path checks; provider templates and link compatibility catalog are not delivered |
+| F08 foundation | Personal app and content links can be named, favorited, ordered, opened, and deleted. Inputs reject invalid or inappropriate link forms. | Persistence and launch-path checks; YouTube and Spotify templates are now included; provider compatibility still needs device checks |
 
-## Connection lifecycle corrections
+## Storage and upgrade compatibility
 
-The protocol client previously started closing a socket before checking whether it should notify reconnection listeners. Closing set the intentional-close flag, which could suppress the unexpected-disconnect callback. The client now captures the notification decision before teardown.
+Existing pairing certificates, saved devices, global/per-TV favorites and custom destinations retain their storage keys. New preferences and optional routine credentials use secure storage. Remembered Cast receivers remain separate from Android TV trust.
 
-Connection attempts also carry cancellation generations so a late TLS connection cannot replace a cancelled session. Held keys are tracked and released on teardown. An intentional disconnect does not schedule reconnection. Tests use a local TLS server to exercise actual socket closure, independently of physical TVs.
-
-## Storage compatibility
-
-- Existing certificate and Android TV pairing keys remain unchanged.
-- Existing global favorite selections and custom links migrate into an ordered favorites representation.
-- Each paired TV copies global preferences when its scope is first used; later changes are independent.
-- Remembered Cast receivers use a separate storage key and never acquire Android TV trust through discovery.
-- No new accounts, analytics, cloud services, or runtime package dependencies were introduced.
-- Existing custom destination naming behavior is retained: adding a destination with the same normalized name replaces that entry in its scope.
-
-## Remaining work and explicit gates
-
-| Item | Status | Required next evidence or work |
-|---|---|---|
-| F03 phone keyboard | Feasibility work remains | The current protobuf schema contains incoming input-field status but no complete outgoing editing message model. Extend from a verified protocol reference, then test field synchronization, cursor handling, Unicode, submission, sensitive input, cancellation, and app compatibility on real TVs. Do not advertise keyboard support yet. |
-| Cast command capabilities | SDK limitation remains | The current Flutter Cast status entity does not expose a supported-media-command mask. Accurate capability gating needs a verified native bridge or upstream SDK change; duration alone cannot prove seek support. |
-| Cast live media and receiver volume | Hardware gate | Verify live streams, external volume changes, media started by other apps, reconnect, and Stop casting on representative receivers. |
-| Detailed power and volume displays | Partially delivered | Mute reporting is consumed. Trustworthy power state, absolute volume reporting, and freshness behavior need device validation before broader display or control claims. |
-| F06 eyes-up mode | Deferred by roadmap dependency | First validate the new stable standard remote, phone-glance frequency, and accidental directional presses. |
-| F07 household control setup | Deferred by roadmap dependency | Validate real power/volume compatibility and determine which user-confirmed preferences improve outcomes. |
-| F08 provider templates | Deferred beyond custom-link foundation | Verify supported provider links and authentication behavior before adding templates or calling destinations guaranteed. |
-| F09 room suggestions and F10 routines | Experimental and deferred | Reliable signals/integrations, user demand, privacy decisions, and failure recovery must be established first. |
-| Accessibility certification | Not claimed | Run complete TalkBack tasks and review focus, announcements, touch accuracy, large text, keyboard-visible pairing, and real-device contrast. |
-| Performance claims | Not measured | Establish launch-to-controls, connection, reconnection, command transmission, and recovery distributions on release builds. |
-| Production signing identity | Existing GitHub distribution retained | v0.10.0 uses the existing signing configuration to preserve update compatibility. A separately managed production identity remains future work; no new signing identity was generated. |
-| Release migration and compatibility matrix | Hardware gate | Test upgrades over an installed version, unavailable TVs, changed addresses, invalid pairing, app compatibility, standby, and network changes. |
-| iOS | Not implemented or tested in this upgrade | The repository has no iOS platform project. Add platform configuration and perform separate SDK, accessibility, permission, and lifecycle verification before claiming support for a delivered iOS build. |
-| User research and product metrics | Outstanding | Run the formative tasks and establish baselines described in the upgrade plan. No usage analytics were silently added. |
+The release APK retains package `com.example.chromecast_remote` and the v0.10.0 signing certificate. An emulator in-place update retained a custom destination and its favorite status without uninstalling. This does not establish physical-TV pairing or every older-version migration.
 
 ## Validation
 
-Automated checks cover the existing protocol/storage/media behavior plus the new session, favorites, launch, contrast, directional input, responsive layout, large-text, and TLS lifecycle behavior. Final verification: `flutter analyze` reported no issues, all **92 tests passed**, `flutter build apk --debug` succeeded, and `git diff --check` passed. The debug APK is available at `build/app/outputs/flutter-apk/app-debug.apk`. Release validation also passed for version 0.10.0, build 12: the release APK builds, its package identity is unchanged, and its certificate matches the published v0.9.0 APK.
+- `flutter analyze`: no issues.
+- `flutter test --reporter expanded`: **128 tests passed**.
+- Android debug and release APK builds passed; release version **0.11.0+13**.
+- APK signature, package/version and previous-certificate continuity verified.
+- Emulator upgrade and navigation smoke checks; representative fake-controller remote and keyboard visual captures.
+- [Release readiness](RELEASE_READINESS.md) records measurements and exact validation boundaries.
 
-Commands:
+## Work still requiring external evidence
 
-```sh
-flutter analyze
-flutter test --reporter expanded
-flutter build apk --debug
-git diff --check
-```
+| Item | Remaining work |
+|---|---|
+| Physical TV matrix | Pair/re-pair, standby, changed address/network, recovery, sustained key-repeat, power/audio reporting, app compatibility |
+| Keyboard preview | Real fields, dismissal/reopening, repeated requests, sensitive fields, Unicode and submission; full synchronized editing is outside the preview |
+| Cast | Real receivers, live streams, media from other apps, external volume changes, reconnect and Stop casting |
+| Optional routines | Real Home Assistant entities and TV app launch; verify partial outcomes after cancellation/failure |
+| Accessibility | Complete TalkBack/VoiceOver pairing, recovery and daily-control journeys, motor-accessibility and large-text review |
+| iOS | Build, sign and run with Xcode; validate plugins, permissions, Keychain, Cast and lifecycle; no IPA shipped |
+| Research | Formative usability tasks, room/eyes-up usefulness, accidental presses and product baselines |
+| Performance | Physical-device connection/recovery distributions and TV response latency; emulator startup observations are not speedup claims |
+| Distribution operations | Secure backup of local signing files, independent production identity/Play enrollment decisions |
 
-Representative emulator checks: Devices and Apps rendering, the three-destination shell, optional settings, native service registration, opening Remote through the Android shortcut action, and retaining a Netflix launch request while selecting a TV. Connected remote layout captures use a fake controller; they are not evidence of physical TV operation.
+No analytics or accounts were silently introduced. Home Assistant is optional and contacts only the explicitly configured server when used. Room suggestions are manual and deterministic.
 
-## Native quick access reference
+## Implementation references
 
-The tile follows the version-specific activity-launch behavior in the [Android TileService API reference](https://developer.android.com/reference/android/service/quicksettings/TileService) and exposes addition through [Android Quick Settings tile guidance](https://developer.android.com/develop/ui/views/quicksettings-tiles). It opens the application and does not send commands while the phone is locked.
+- [Android Cast MediaStatus](https://developers.google.com/android/reference/com/google/android/gms/cast/MediaStatus)
+- [iOS Cast media status](https://developers.google.com/cast/docs/reference/ios/interface_g_c_k_media_status)
+- [Home Assistant REST API](https://developers.home-assistant.io/docs/api/rest/)
+- [Home Assistant media player](https://www.home-assistant.io/integrations/media_player/)
+- [Spotify identifiers and URIs](https://developer.spotify.com/documentation/web-api/concepts/spotify-uris-ids)

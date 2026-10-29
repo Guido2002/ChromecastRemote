@@ -5,6 +5,8 @@ import android.content.ComponentName
 import android.content.Intent
 import android.graphics.drawable.Icon
 import android.os.Build
+import com.google.android.gms.cast.MediaStatus
+import com.google.android.gms.cast.framework.CastContext
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -15,6 +17,22 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "chromecast_remote/cast_capabilities")
+            .setMethodCallHandler { call, result ->
+                if (call.method != "read") { result.notImplemented() }
+                else {
+                    try {
+                        val session = CastContext.getSharedInstance(this).sessionManager.currentCastSession
+                        val status = session?.remoteMediaClient?.mediaStatus
+                        result.success(if (session == null || status == null) null else mapOf(
+                            "deviceId" to session.castDevice?.deviceId,
+                            "mediaSessionId" to status.toJson().optLong("mediaSessionId", -1L),
+                            "seek" to status.isMediaCommandSupported(MediaStatus.COMMAND_SEEK),
+                            "pause" to status.isMediaCommandSupported(MediaStatus.COMMAND_PAUSE)
+                        ))
+                    } catch (_: Exception) { result.success(null) }
+                }
+            }
         pendingRemote = intent?.action == ACTION_OPEN_REMOTE
         navigation = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "chromecast_remote/navigation")
         navigation?.setMethodCallHandler { call, result ->

@@ -13,6 +13,7 @@ abstract final class AndroidKeyCodes {
   static const int volumeUp = 24;
   static const int volumeDown = 25;
   static const int power = 26;
+  static const int enter = 66;
   static const int search = 84;
   static const int mediaPlayPause = 85;
   static const int mediaStop = 86;

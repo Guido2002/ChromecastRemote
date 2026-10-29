@@ -11,6 +11,8 @@ import '../../../shared/models/discovered_device.dart';
 import '../../apps/presentation/app_library_view.dart';
 import '../../apps/tv_app.dart';
 import '../../apps/app_launcher.dart';
+import '../../household/room_suggestions.dart';
+import '../../automation/presentation/routines_screen.dart';
 import '../../pairing/paired_device_store.dart';
 import '../../pairing/presentation/pairing_screen.dart';
 import '../../remote/presentation/android_tv_remote_screen.dart';
@@ -57,12 +59,16 @@ class _DevicesScreenState extends State<DevicesScreen>
   String? _restoringCastId;
   TvApp? _pendingApp;
   bool _userSelected = false;
+  String? _room;
+  bool _roomTouched = false;
   RemoteConnectionState _connectionState = RemoteConnectionState.disconnected;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _services.tvPreferences.addListener(_preferencesChanged);
+    unawaited(_restoreRoom());
     _navigation.setMethodCallHandler((call) async {
       if (call.method == 'openRemote') {
         await _navigation.invokeMethod<bool>('consumeOpenRemote');
@@ -99,6 +105,15 @@ class _DevicesScreenState extends State<DevicesScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) unawaited(checkForAppUpdate(context, userInitiated: false));
     });
+  }
+
+  void _preferencesChanged() {
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _restoreRoom() async {
+    final room = await _services.secureStore.read('selected_room_v1');
+    if (mounted && !_roomTouched) setState(() => _room = room);
   }
 
   Future<void> _consumeQuickAccess() async {
@@ -182,6 +197,9 @@ class _DevicesScreenState extends State<DevicesScreen>
   Future<void> _loadPairedDevices() async {
     final devices = await _services.pairedDevices.loadPairedDevices();
     final cast = await _services.pairedDevices.loadCastReceivers();
+    await Future.wait(
+      devices.map((device) => _services.tvPreferences.load(device.serviceName)),
+    );
     devices.sort((a, b) => b.pairedAt.compareTo(a.pairedAt));
     if (mounted) {
       setState(() {
@@ -225,6 +243,7 @@ class _DevicesScreenState extends State<DevicesScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _services.tvPreferences.removeListener(_preferencesChanged);
     _navigation.setMethodCallHandler(null);
     _subscription?.cancel();
     _connectionSubscription?.cancel();
@@ -488,6 +507,34 @@ class _DevicesScreenState extends State<DevicesScreen>
     setState(() => _sectionIndex = 2);
   }
 
+  void _openRoutines() {
+    final tv = _castDevice == null
+        ? _services.androidTvConnection.controller
+        : null;
+    tv?.cancelHeldCommands();
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => RoutinesScreen(
+          store: _services.routines,
+          shortcuts: _services.appShortcuts.forDevice(
+            tv?.pairedDevice.serviceName,
+          ),
+          controller: tv,
+          isCurrentTarget: () =>
+              mounted &&
+              _castDevice == null &&
+              tv != null &&
+              identical(tv, _services.androidTvConnection.controller) &&
+              tv.connectionState == RemoteConnectionState.connected,
+          onChooseDevice: () {
+            Navigator.of(context).pop();
+            _chooseDevice();
+          },
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = _services.androidTvConnection.controller;
@@ -545,6 +592,7 @@ class _DevicesScreenState extends State<DevicesScreen>
               if (_castDevice != null)
                 CastRemoteScreen(
                   device: _castDevice!,
+                  active: _sectionIndex == 0,
                   embedded: true,
                   onStopped: () => setState(() {
                     _castDevice = null;
@@ -560,6 +608,7 @@ class _DevicesScreenState extends State<DevicesScreen>
                   active: _sectionIndex == 0 && _openingDeviceId == null,
                   onChooseDevice: _chooseDevice,
                   onManageApps: () => setState(() => _sectionIndex = 1),
+                  onRoutines: _openRoutines,
                   onRetry: () => _openSavedDevice(active.pairedDevice),
                   onForget: () => _forgetSavedDevice(active.pairedDevice),
                 )
@@ -595,6 +644,7 @@ class _DevicesScreenState extends State<DevicesScreen>
                 ),
               AppLibraryView(
                 store: scope,
+                onRoutines: _openRoutines,
                 connectedDeviceName: connected ? active?.deviceName : null,
                 onLaunchApp: (app) => _launchApp(
                   app,
@@ -648,12 +698,29 @@ class _DevicesScreenState extends State<DevicesScreen>
     final nearby = _devices
         .where((device) => !savedNames.contains(device.id))
         .toList();
-    final saved = [..._pairedDevices]
-      ..sort((a, b) {
-        if (_services.androidTvConnection.isActive(a.serviceName)) return -1;
-        if (_services.androidTvConnection.isActive(b.serviceName)) return 1;
-        return a.displayName.compareTo(b.displayName);
-      });
+    final rooms =
+        _pairedDevices
+            .map(
+              (device) =>
+                  _services.tvPreferences.cached(device.serviceName).room,
+            )
+            .where((room) => room.isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort();
+    final selectedRoom = rooms.contains(_room) ? _room : null;
+    final saved = suggestRoomTvs(
+      devices: _pairedDevices,
+      nearbyServices: _devices
+          .where((device) => device.protocol == DeviceProtocol.androidTvRemote)
+          .map((device) => device.id.substring(4))
+          .toSet(),
+      preferences: _services.tvPreferences.cached,
+      room: selectedRoom,
+      activeService: _castDevice == null
+          ? _services.androidTvConnection.controller?.pairedDevice.serviceName
+          : null,
+    );
     return AdaptiveContent(
       maxWidth: 800,
       child: ListView(
@@ -689,10 +756,44 @@ class _DevicesScreenState extends State<DevicesScreen>
                     ),
             ),
           if (_error != null) _ErrorBanner(message: _error!, onRetry: _rescan),
-          if (saved.isNotEmpty) ...[
+          if (rooms.isNotEmpty) ...[
+            DropdownButtonFormField<String>(
+              key: ValueKey(selectedRoom),
+              initialValue: selectedRoom,
+              decoration: const InputDecoration(labelText: 'Room suggestions'),
+              items: [
+                const DropdownMenuItem<String>(
+                  value: null,
+                  child: Text('All rooms'),
+                ),
+                for (final room in rooms)
+                  DropdownMenuItem(value: room, child: Text(room)),
+              ],
+              onChanged: (value) async {
+                setState(() {
+                  _room = value;
+                  _roomTouched = true;
+                });
+                if (value == null) {
+                  await _services.secureStore.delete('selected_room_v1');
+                } else {
+                  await _services.secureStore.write('selected_room_v1', value);
+                }
+              },
+            ),
             const Padding(
-              padding: EdgeInsets.symmetric(vertical: 12),
-              child: Text('Your TVs'),
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: Text(
+                'Nearby saved TVs are suggested first. Assign rooms in Remote options → Controls and room setup.',
+              ),
+            ),
+          ],
+          if (saved.isNotEmpty) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Text(
+                selectedRoom == null ? 'Your TVs' : 'TVs for $selectedRoom',
+              ),
             ),
             for (final device in saved)
               Padding(

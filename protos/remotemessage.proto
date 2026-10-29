@@ -57,6 +57,28 @@ message RemoteImeKeyInject {
   RemoteTextFieldStatus text_field_status = 2;
 }
 
+// IME wire fields follow androidtvremote2/remotemessage.proto.
+message RemoteImeShowRequest {
+  RemoteTextFieldStatus remote_text_field_status = 2;
+}
+
+message RemoteImeObject {
+  int32 start = 1;
+  int32 end = 2;
+  string value = 3;
+}
+
+message RemoteEditInfo {
+  int32 insert = 1;
+  RemoteImeObject text_field_status = 2;
+}
+
+message RemoteImeBatchEdit {
+  int32 ime_counter = 1;
+  int32 field_counter = 2;
+  repeated RemoteEditInfo edit_info = 3;
+}
+
 enum RemoteDirection {
   UNKNOWN_DIRECTION = 0;
   START_LONG = 1;
@@ -109,6 +131,8 @@ message RemoteMessage {
   RemotePingResponse remote_ping_response = 9;
   RemoteKeyInject remote_key_inject = 10;
   RemoteImeKeyInject remote_ime_key_inject = 20;
+  RemoteImeBatchEdit remote_ime_batch_edit = 21;
+  RemoteImeShowRequest remote_ime_show_request = 22;
   RemoteStart remote_start = 40;
   RemoteSetVolumeLevel remote_set_volume_level = 50;
   RemoteAppLinkLaunchRequest remote_app_link_launch_request = 90;

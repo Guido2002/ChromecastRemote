@@ -151,6 +151,85 @@ final $typed_data.Uint8List remoteImeKeyInjectDescriptor = $convert.base64Decode
     'BwSW5mb1IHYXBwSW5mbxJJChF0ZXh0X2ZpZWxkX3N0YXR1cxgCIAEoCzIdLnJlbW90ZS5SZW1v'
     'dGVUZXh0RmllbGRTdGF0dXNSD3RleHRGaWVsZFN0YXR1cw==');
 
+@$core.Deprecated('Use remoteImeShowRequestDescriptor instead')
+const RemoteImeShowRequest$json = {
+  '1': 'RemoteImeShowRequest',
+  '2': [
+    {
+      '1': 'remote_text_field_status',
+      '3': 2,
+      '4': 1,
+      '5': 11,
+      '6': '.remote.RemoteTextFieldStatus',
+      '10': 'remoteTextFieldStatus'
+    },
+  ],
+};
+
+/// Descriptor for `RemoteImeShowRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List remoteImeShowRequestDescriptor = $convert.base64Decode(
+    'ChRSZW1vdGVJbWVTaG93UmVxdWVzdBJWChhyZW1vdGVfdGV4dF9maWVsZF9zdGF0dXMYAiABKA'
+    'syHS5yZW1vdGUuUmVtb3RlVGV4dEZpZWxkU3RhdHVzUhVyZW1vdGVUZXh0RmllbGRTdGF0dXM=');
+
+@$core.Deprecated('Use remoteImeObjectDescriptor instead')
+const RemoteImeObject$json = {
+  '1': 'RemoteImeObject',
+  '2': [
+    {'1': 'start', '3': 1, '4': 1, '5': 5, '10': 'start'},
+    {'1': 'end', '3': 2, '4': 1, '5': 5, '10': 'end'},
+    {'1': 'value', '3': 3, '4': 1, '5': 9, '10': 'value'},
+  ],
+};
+
+/// Descriptor for `RemoteImeObject`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List remoteImeObjectDescriptor = $convert.base64Decode(
+    'Cg9SZW1vdGVJbWVPYmplY3QSFAoFc3RhcnQYASABKAVSBXN0YXJ0EhAKA2VuZBgCIAEoBVIDZW'
+    '5kEhQKBXZhbHVlGAMgASgJUgV2YWx1ZQ==');
+
+@$core.Deprecated('Use remoteEditInfoDescriptor instead')
+const RemoteEditInfo$json = {
+  '1': 'RemoteEditInfo',
+  '2': [
+    {'1': 'insert', '3': 1, '4': 1, '5': 5, '10': 'insert'},
+    {
+      '1': 'text_field_status',
+      '3': 2,
+      '4': 1,
+      '5': 11,
+      '6': '.remote.RemoteImeObject',
+      '10': 'textFieldStatus'
+    },
+  ],
+};
+
+/// Descriptor for `RemoteEditInfo`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List remoteEditInfoDescriptor = $convert.base64Decode(
+    'Cg5SZW1vdGVFZGl0SW5mbxIWCgZpbnNlcnQYASABKAVSBmluc2VydBJDChF0ZXh0X2ZpZWxkX3'
+    'N0YXR1cxgCIAEoCzIXLnJlbW90ZS5SZW1vdGVJbWVPYmplY3RSD3RleHRGaWVsZFN0YXR1cw==');
+
+@$core.Deprecated('Use remoteImeBatchEditDescriptor instead')
+const RemoteImeBatchEdit$json = {
+  '1': 'RemoteImeBatchEdit',
+  '2': [
+    {'1': 'ime_counter', '3': 1, '4': 1, '5': 5, '10': 'imeCounter'},
+    {'1': 'field_counter', '3': 2, '4': 1, '5': 5, '10': 'fieldCounter'},
+    {
+      '1': 'edit_info',
+      '3': 3,
+      '4': 3,
+      '5': 11,
+      '6': '.remote.RemoteEditInfo',
+      '10': 'editInfo'
+    },
+  ],
+};
+
+/// Descriptor for `RemoteImeBatchEdit`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List remoteImeBatchEditDescriptor = $convert.base64Decode(
+    'ChJSZW1vdGVJbWVCYXRjaEVkaXQSHwoLaW1lX2NvdW50ZXIYASABKAVSCmltZUNvdW50ZXISIw'
+    'oNZmllbGRfY291bnRlchgCIAEoBVIMZmllbGRDb3VudGVyEjMKCWVkaXRfaW5mbxgDIAMoCzIW'
+    'LnJlbW90ZS5SZW1vdGVFZGl0SW5mb1IIZWRpdEluZm8=');
+
 @$core.Deprecated('Use remoteKeyInjectDescriptor instead')
 const RemoteKeyInject$json = {
   '1': 'RemoteKeyInject',
@@ -333,6 +412,22 @@ const RemoteMessage$json = {
       '10': 'remoteImeKeyInject'
     },
     {
+      '1': 'remote_ime_batch_edit',
+      '3': 21,
+      '4': 1,
+      '5': 11,
+      '6': '.remote.RemoteImeBatchEdit',
+      '10': 'remoteImeBatchEdit'
+    },
+    {
+      '1': 'remote_ime_show_request',
+      '3': 22,
+      '4': 1,
+      '5': 11,
+      '6': '.remote.RemoteImeShowRequest',
+      '10': 'remoteImeShowRequest'
+    },
+    {
       '1': 'remote_start',
       '3': 40,
       '4': 1,
@@ -370,8 +465,11 @@ final $typed_data.Uint8List remoteMessageDescriptor = $convert.base64Decode(
     'UmVzcG9uc2VSEnJlbW90ZVBpbmdSZXNwb25zZRJDChFyZW1vdGVfa2V5X2luamVjdBgKIAEoCz'
     'IXLnJlbW90ZS5SZW1vdGVLZXlJbmplY3RSD3JlbW90ZUtleUluamVjdBJNChVyZW1vdGVfaW1l'
     'X2tleV9pbmplY3QYFCABKAsyGi5yZW1vdGUuUmVtb3RlSW1lS2V5SW5qZWN0UhJyZW1vdGVJbW'
-    'VLZXlJbmplY3QSNgoMcmVtb3RlX3N0YXJ0GCggASgLMhMucmVtb3RlLlJlbW90ZVN0YXJ0Ugty'
-    'ZW1vdGVTdGFydBJTChdyZW1vdGVfc2V0X3ZvbHVtZV9sZXZlbBgyIAEoCzIcLnJlbW90ZS5SZW'
-    '1vdGVTZXRWb2x1bWVMZXZlbFIUcmVtb3RlU2V0Vm9sdW1lTGV2ZWwSZgoecmVtb3RlX2FwcF9s'
-    'aW5rX2xhdW5jaF9yZXF1ZXN0GFogASgLMiIucmVtb3RlLlJlbW90ZUFwcExpbmtMYXVuY2hSZX'
-    'F1ZXN0UhpyZW1vdGVBcHBMaW5rTGF1bmNoUmVxdWVzdA==');
+    'VLZXlJbmplY3QSTQoVcmVtb3RlX2ltZV9iYXRjaF9lZGl0GBUgASgLMhoucmVtb3RlLlJlbW90'
+    'ZUltZUJhdGNoRWRpdFIScmVtb3RlSW1lQmF0Y2hFZGl0ElMKF3JlbW90ZV9pbWVfc2hvd19yZX'
+    'F1ZXN0GBYgASgLMhwucmVtb3RlLlJlbW90ZUltZVNob3dSZXF1ZXN0UhRyZW1vdGVJbWVTaG93'
+    'UmVxdWVzdBI2CgxyZW1vdGVfc3RhcnQYKCABKAsyEy5yZW1vdGUuUmVtb3RlU3RhcnRSC3JlbW'
+    '90ZVN0YXJ0ElMKF3JlbW90ZV9zZXRfdm9sdW1lX2xldmVsGDIgASgLMhwucmVtb3RlLlJlbW90'
+    'ZVNldFZvbHVtZUxldmVsUhRyZW1vdGVTZXRWb2x1bWVMZXZlbBJmCh5yZW1vdGVfYXBwX2xpbm'
+    'tfbGF1bmNoX3JlcXVlc3QYWiABKAsyIi5yZW1vdGUuUmVtb3RlQXBwTGlua0xhdW5jaFJlcXVl'
+    'c3RSGnJlbW90ZUFwcExpbmtMYXVuY2hSZXF1ZXN0');

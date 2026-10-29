@@ -5,9 +5,18 @@ import 'package:flutter_chrome_cast/flutter_chrome_cast.dart';
 
 import 'features/discovery/presentation/devices_screen.dart';
 import 'shared/presentation/app_theme.dart';
+import 'features/diagnostics/local_diagnostics.dart';
 
 void main() {
+  final startup = Stopwatch()..start();
   WidgetsFlutterBinding.ensureInitialized();
+  WidgetsBinding.instance.addPostFrameCallback(
+    (_) => LocalDiagnostics.instance.record(
+      RemoteMetric.firstFrame,
+      startup.elapsed,
+      success: true,
+    ),
+  );
   runApp(const ChromecastRemoteApp());
 }
 

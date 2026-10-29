@@ -1,4 +1,6 @@
 import 'dart:async';
+import '../features/household/tv_preferences.dart';
+import '../features/automation/routines.dart';
 
 import '../features/apps/app_shortcut_store.dart';
 import '../shared/models/discovered_device.dart';
@@ -53,6 +55,10 @@ class AppServices {
           }
         },
       );
+
+  late final RoutineStore routines = RoutineStore(secureStore);
+
+  late final TvPreferenceStore tvPreferences = TvPreferenceStore(secureStore);
 
   late final AppShortcutStore appShortcuts = AppShortcutStore(
     store: secureStore,

@@ -7,6 +7,7 @@ import 'package:crypto/crypto.dart';
 import 'android_key_codes.dart';
 import 'certificate_manager.dart';
 import 'framing.dart';
+import 'text_input.dart';
 import 'proto/remotemessage.pb.dart';
 
 /// Device information reported by the TV in the RemoteConfigure handshake.
@@ -56,15 +57,17 @@ class RemoteConnectionException implements Exception {
 ///  * answers RemoteSetActive,
 ///  * echoes RemotePingRequest (the TV pings every ~5 s when idle),
 ///  * exposes volume / current-app / power-state updates,
-///  * closes the connection when no message arrives for 16 s (the TV closes
-///    after 3 unanswered pings, so silence means the link is dead).
+///  * closes an idle connection after 16 seconds without traffic. TVs may
+///    stop sending idle pings while receiving commands.
 class AndroidTvRemoteClient {
-  AndroidTvRemoteClient({required this.certificates});
+  AndroidTvRemoteClient({
+    required this.certificates,
+    this.idleTimeout = const Duration(seconds: 16),
+  });
 
   static const defaultPort = 6466;
 
-  /// The TV goes silent ~16 s only when the connection is dead.
-  static const _idleTimeout = Duration(seconds: 16);
+  final Duration idleTimeout;
 
   final CertificateManager certificates;
   final MessageFraming _framing = MessageFraming();
@@ -77,6 +80,7 @@ class AndroidTvRemoteClient {
   int _connectionEpoch = 0;
 
   int _activeFeatures = AndroidTvFeatures.requested;
+  final textInput = AndroidTvTextInput();
 
   final _volumeController = StreamController<AndroidTvVolumeInfo>.broadcast();
   final _currentAppController = StreamController<String>.broadcast();
@@ -89,6 +93,8 @@ class AndroidTvRemoteClient {
   AndroidTvVolumeInfo? volumeInfo;
   String? currentApp;
   bool isOn = false;
+  DateTime? powerReportedAt;
+  DateTime? volumeReportedAt;
 
   bool get isConnected => _socket != null;
 
@@ -183,6 +189,7 @@ class AndroidTvRemoteClient {
               .writeToBuffer(),
         ),
       );
+      _resetIdleTimer();
     } catch (_) {
       _dropConnection('Failed to send a command to the TV.');
     }
@@ -223,6 +230,33 @@ class AndroidTvRemoteClient {
             .writeToBuffer(),
       ),
     );
+    _resetIdleTimer();
+  }
+
+  bool sendText(String text, AndroidTvTextSession session) {
+    if (_socket == null || _activeFeatures & AndroidTvFeatures.ime == 0) {
+      return false;
+    }
+    final request = textInput.createRequest(text, session);
+    if (request == null) return false;
+    try {
+      _send(request);
+      return true;
+    } catch (_) {
+      _dropConnection('Could not send text to the TV.');
+      return false;
+    }
+  }
+
+  bool sendTextEnter(AndroidTvTextSession session) {
+    if (_socket == null ||
+        !textInput.accepts(session) ||
+        _activeFeatures & AndroidTvFeatures.ime == 0 ||
+        _activeFeatures & AndroidTvFeatures.key == 0) {
+      return false;
+    }
+    sendKey(AndroidKeyCodes.enter);
+    return isConnected;
   }
 
   Future<void> close() async {
@@ -230,6 +264,10 @@ class AndroidTvRemoteClient {
     cancelLongPress();
     currentApp = null;
     volumeInfo = null;
+    textInput.reset();
+    powerReportedAt = null;
+    volumeReportedAt = null;
+    isOn = false;
     _closedByUs = true;
     _idleTimer?.cancel();
     _idleTimer = null;
@@ -253,6 +291,7 @@ class AndroidTvRemoteClient {
     await _volumeController.close();
     await _currentAppController.close();
     await _powerStateController.close();
+    await textInput.dispose();
   }
 
   // ── Internals ──────────────────────────────────────────────────────────────
@@ -310,10 +349,12 @@ class AndroidTvRemoteClient {
       );
     } else if (message.hasRemoteStart()) {
       isOn = message.remoteStart.started;
+      powerReportedAt = DateTime.now().toUtc();
       _powerStateController.add(isOn);
       if (_readyCompleter?.isCompleted == false) _readyCompleter!.complete();
     } else if (message.hasRemoteSetVolumeLevel()) {
       final volume = message.remoteSetVolumeLevel;
+      volumeReportedAt = DateTime.now().toUtc();
       volumeInfo = AndroidTvVolumeInfo(
         level: volume.volumeLevel,
         max: volume.volumeMax,
@@ -322,9 +363,13 @@ class AndroidTvRemoteClient {
       _volumeController.add(volumeInfo!);
     } else if (message.hasRemoteImeKeyInject()) {
       final app = message.remoteImeKeyInject.appInfo.appPackage;
-      if (app.isNotEmpty) {
-        currentApp = app;
-        _currentAppController.add(app);
+      textInput.updateApp(app.isEmpty ? null : app);
+      currentApp = app.isEmpty ? null : app;
+      _currentAppController.add(app);
+    } else if (message.hasRemoteImeBatchEdit()) {
+      if (_activeFeatures & AndroidTvFeatures.ime != 0) {
+        final batch = message.remoteImeBatchEdit;
+        textInput.updateCounters(batch.imeCounter, batch.fieldCounter);
       }
     } else if (message.hasRemoteError()) {
       // The TV rejected a command; surface via log only, never crash.
@@ -340,11 +385,12 @@ class AndroidTvRemoteClient {
     final socket = _socket;
     if (socket == null) return;
     socket.add(MessageFraming.encode(message.writeToBuffer()));
+    _resetIdleTimer();
   }
 
   void _resetIdleTimer() {
     _idleTimer?.cancel();
-    _idleTimer = Timer(_idleTimeout, _onIdleTimeout);
+    _idleTimer = Timer(idleTimeout, _onIdleTimeout);
   }
 
   void _onIdleTimeout() {

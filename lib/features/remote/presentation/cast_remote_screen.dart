@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_chrome_cast/flutter_chrome_cast.dart';
@@ -6,6 +7,7 @@ import '../../../media_url.dart';
 import '../../../shared/presentation/adaptive_layout.dart';
 import '../../../shared/presentation/app_motion.dart';
 import '../../../shared/presentation/app_theme.dart';
+import '../cast_capabilities.dart';
 
 /// Remote screen for classic Chromecast devices.
 ///
@@ -16,12 +18,14 @@ class CastRemoteScreen extends StatefulWidget {
   const CastRemoteScreen({
     required this.device,
     this.embedded = false,
+    this.active = true,
     this.onStopped,
     super.key,
   });
 
   final GoogleCastDevice device;
   final bool embedded;
+  final bool active;
   final VoidCallback? onStopped;
 
   @override
@@ -150,6 +154,8 @@ class _CastRemoteScreenState extends State<CastRemoteScreen> {
                               children: [
                                 _MediaControlsCard(
                                   connected: connected,
+                                  active: widget.active,
+                                  deviceId: widget.device.deviceID,
                                   onMessage: _showMessage,
                                 ),
                                 const SizedBox(height: 18),
@@ -173,6 +179,8 @@ class _CastRemoteScreenState extends State<CastRemoteScreen> {
                         children: [
                           _MediaControlsCard(
                             connected: connected,
+                            active: widget.active,
+                            deviceId: widget.device.deviceID,
                             onMessage: _showMessage,
                           ),
                           const SizedBox(height: 14),
@@ -229,7 +237,9 @@ class _CastStatus extends StatelessWidget {
         : colors.onSurfaceVariant;
 
     return AnimatedSwitcher(
-      duration: AppMotion.standard,
+      duration: MediaQuery.disableAnimationsOf(context)
+          ? Duration.zero
+          : AppMotion.standard,
       child: Row(
         key: ValueKey(label),
         mainAxisSize: MainAxisSize.min,
@@ -254,21 +264,117 @@ class _CastStatus extends StatelessWidget {
 }
 
 class _MediaControlsCard extends StatefulWidget {
-  const _MediaControlsCard({required this.connected, required this.onMessage});
+  const _MediaControlsCard({
+    required this.connected,
+    required this.onMessage,
+    required this.deviceId,
+    required this.active,
+  });
 
   final bool connected;
+  final String deviceId;
+  final bool active;
   final void Function(String message, {bool isWarning}) onMessage;
 
   @override
   State<_MediaControlsCard> createState() => _MediaControlsCardState();
 }
 
-class _MediaControlsCardState extends State<_MediaControlsCard> {
+class _MediaControlsCardState extends State<_MediaControlsCard>
+    with WidgetsBindingObserver {
+  CastCapabilities? _capabilities;
+  Timer? _poll;
+  bool _foreground = true;
+  bool _reading = false;
+  int _epoch = 0;
+  int? _dragMediaId;
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _startCapabilities();
+  }
+
+  @override
+  void didUpdateWidget(_MediaControlsCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.connected != widget.connected ||
+        oldWidget.active != widget.active ||
+        oldWidget.deviceId != widget.deviceId) {
+      _startCapabilities();
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _foreground = state == AppLifecycleState.resumed;
+    _startCapabilities();
+  }
+
+  void _startCapabilities() {
+    _epoch++;
+    _poll?.cancel();
+    _capabilities = null;
+    if (!widget.active || !widget.connected || !_foreground) return;
+    unawaited(_refreshCapabilities());
+    _poll = Timer.periodic(
+      const Duration(seconds: 1),
+      (_) => unawaited(_refreshCapabilities()),
+    );
+  }
+
+  Future<void> _refreshCapabilities() async {
+    if (_reading) return;
+    final epoch = _epoch;
+    _reading = true;
+    try {
+      final value = await CastCapabilities.read();
+      if (mounted && epoch == _epoch) setState(() => _capabilities = value);
+    } finally {
+      _reading = false;
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _poll?.cancel();
+    _epoch++;
+    super.dispose();
+  }
+
+  bool get _sessionMatches =>
+      widget.active &&
+      widget.connected &&
+      GoogleCastSessionManager.instance.currentSession?.device?.deviceID ==
+          widget.deviceId;
+  CastSeekWindow? _window(GoggleCastMediaStatus? status) =>
+      CastSeekWindow.resolve(
+        seekSupported:
+            _sessionMatches &&
+            _capabilities?.matches(widget.deviceId, status?.mediaSessionID) ==
+                true &&
+            _capabilities!.seek,
+        live: status?.mediaInformation?.streamType == CastMediaStreamType.live,
+        duration: status?.mediaInformation?.duration,
+        liveStart: status?.liveSeekableRange?.start,
+        liveEnd: status?.liveSeekableRange?.end,
+      );
+
   bool _busy = false;
   double? _dragPosition;
 
-  Future<void> _perform(Future<void> Function() command) async {
-    if (!widget.connected || _busy) return;
+  Future<void> _perform(
+    Future<void> Function() command, {
+    int? expectedSession,
+  }) async {
+    if (!_sessionMatches ||
+        _busy ||
+        (expectedSession != null &&
+            GoogleCastRemoteMediaClient.instance.mediaStatus?.mediaSessionID !=
+                expectedSession)) {
+      return;
+    }
     setState(() => _busy = true);
     try {
       await command();
@@ -279,24 +385,32 @@ class _MediaControlsCardState extends State<_MediaControlsCard> {
     }
   }
 
-  Future<void> _skip(Duration delta) async {
+  Future<void> _skip(Duration delta, int expectedSession) async {
     final client = GoogleCastRemoteMediaClient.instance;
-    final current = client.playerPosition;
-    final duration = client.mediaStatus?.mediaInformation?.duration;
-    var target = current + delta;
-    if (target < Duration.zero) target = Duration.zero;
-    if (duration != null && target > duration) target = duration;
+    final window = _window(client.mediaStatus);
+    if (window == null) return;
     await _perform(
-      () => client.seek(GoogleCastMediaSeekOption(position: target)),
+      () => client.seek(
+        GoogleCastMediaSeekOption(
+          position: window.clamp(client.playerPosition + delta),
+        ),
+      ),
+      expectedSession: expectedSession,
     );
   }
 
-  Future<void> _seek(Duration position) async {
-    setState(() => _dragPosition = null);
+  Future<void> _seek(Duration position, int expectedSession) async {
+    setState(() {
+      _dragPosition = null;
+      _dragMediaId = null;
+    });
+    final window = _window(GoogleCastRemoteMediaClient.instance.mediaStatus);
+    if (window == null) return;
     await _perform(
       () => GoogleCastRemoteMediaClient.instance.seek(
-        GoogleCastMediaSeekOption(position: position),
+        GoogleCastMediaSeekOption(position: window.clamp(position)),
       ),
+      expectedSession: expectedSession,
     );
   }
 
@@ -315,6 +429,12 @@ class _MediaControlsCardState extends State<_MediaControlsCard> {
             final status = widget.connected ? statusSnapshot.data : null;
             final info = status?.mediaInformation;
             final duration = info?.duration;
+            final live = info?.streamType == CastMediaStreamType.live;
+            final window = _window(status);
+            final mediaId = status?.mediaSessionID;
+            final pauseSupported =
+                _capabilities?.matches(widget.deviceId, mediaId) == true &&
+                _capabilities!.pause;
             final mediaLoaded = info != null;
             final title = _titleFor(info);
             final state = status?.playerState;
@@ -322,7 +442,7 @@ class _MediaControlsCardState extends State<_MediaControlsCard> {
             final loading =
                 state == CastMediaPlayerState.loading ||
                 state == CastMediaPlayerState.buffering;
-            final canControl = widget.connected && mediaLoaded && !_busy;
+            final canControl = _sessionMatches && mediaLoaded && !_busy;
 
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -379,28 +499,32 @@ class _MediaControlsCardState extends State<_MediaControlsCard> {
                   builder: (context, positionSnapshot) {
                     final actualPosition =
                         positionSnapshot.data ?? Duration.zero;
-                    final totalMs = duration?.inMilliseconds ?? 0;
+                    final minMs =
+                        window?.start.inMilliseconds.toDouble() ?? 0.0;
+                    final maxMs = window?.end.inMilliseconds.toDouble() ?? 1.0;
                     final currentMs =
-                        _dragPosition ??
-                        actualPosition.inMilliseconds
-                            .clamp(0, totalMs > 0 ? totalMs : 0)
-                            .toDouble();
+                        (_dragMediaId == mediaId ? _dragPosition : null) ??
+                        actualPosition.inMilliseconds.toDouble();
                     final sliderEnabled =
-                        canControl && duration != null && totalMs > 0;
+                        canControl && window != null && mediaId != null;
 
                     return Column(
                       children: [
                         Slider(
-                          value: totalMs > 0
-                              ? currentMs.clamp(0, totalMs.toDouble())
-                              : 0,
-                          max: totalMs > 0 ? totalMs.toDouble() : 1,
+                          value: currentMs.clamp(minMs, maxMs),
+                          min: minMs,
+                          max: maxMs,
                           onChanged: sliderEnabled
-                              ? (value) => setState(() => _dragPosition = value)
+                              ? (value) => setState(() {
+                                  _dragPosition = value;
+                                  _dragMediaId = mediaId;
+                                })
                               : null,
                           onChangeEnd: sliderEnabled
-                              ? (value) =>
-                                    _seek(Duration(milliseconds: value.round()))
+                              ? (value) => _seek(
+                                  Duration(milliseconds: value.round()),
+                                  mediaId,
+                                )
                               : null,
                         ),
                         Padding(
@@ -419,7 +543,9 @@ class _MediaControlsCardState extends State<_MediaControlsCard> {
                                 style: Theme.of(context).textTheme.labelSmall,
                               ),
                               Text(
-                                duration == null
+                                live
+                                    ? 'LIVE'
+                                    : duration == null
                                     ? '—:—'
                                     : _formatDuration(duration),
                                 style: Theme.of(context).textTheme.labelSmall,
@@ -438,8 +564,8 @@ class _MediaControlsCardState extends State<_MediaControlsCard> {
                     _RoundControlButton(
                       tooltip: 'Back 10 seconds',
                       icon: Icons.replay_10,
-                      onPressed: canControl && duration != null
-                          ? () => _skip(const Duration(seconds: -10))
+                      onPressed: canControl && window != null && mediaId != null
+                          ? () => _skip(const Duration(seconds: -10), mediaId)
                           : null,
                     ),
                     const SizedBox(width: 18),
@@ -447,9 +573,11 @@ class _MediaControlsCardState extends State<_MediaControlsCard> {
                       width: 66,
                       height: 66,
                       child: FilledButton(
-                        onPressed: canControl
-                            ? () =>
-                                  _perform(playing ? client.pause : client.play)
+                        onPressed: canControl && (!playing || pauseSupported)
+                            ? () => _perform(
+                                playing ? client.pause : client.play,
+                                expectedSession: mediaId,
+                              )
                             : null,
                         style: FilledButton.styleFrom(
                           shape: const CircleBorder(),
@@ -469,20 +597,29 @@ class _MediaControlsCardState extends State<_MediaControlsCard> {
                     _RoundControlButton(
                       tooltip: 'Forward 30 seconds',
                       icon: Icons.forward_30,
-                      onPressed: canControl && duration != null
-                          ? () => _skip(const Duration(seconds: 30))
+                      onPressed: canControl && window != null && mediaId != null
+                          ? () => _skip(const Duration(seconds: 30), mediaId)
                           : null,
                     ),
                     const SizedBox(width: 8),
                     IconButton(
                       tooltip: 'Stop playback',
                       onPressed: canControl
-                          ? () => _perform(client.stop)
+                          ? () =>
+                                _perform(client.stop, expectedSession: mediaId)
                           : null,
                       icon: const Icon(Icons.stop_rounded),
                     ),
                   ],
                 ),
+                if (mediaLoaded &&
+                    _capabilities?.matches(widget.deviceId, mediaId) != true)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 8),
+                    child: Text(
+                      'Some controls are unavailable until receiver capabilities are reported.',
+                    ),
+                  ),
                 if (!mediaLoaded && widget.connected) ...[
                   const SizedBox(height: 8),
                   Text(

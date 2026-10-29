@@ -49,3 +49,8 @@ ios/.symlinks/
 
 # IDE
 .idea/
+# Local release signing credentials and key material
+android/key.properties
+*.jks
+*.keystore
+*.p12

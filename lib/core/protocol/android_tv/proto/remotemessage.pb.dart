@@ -629,6 +629,300 @@ class RemoteImeKeyInject extends $pb.GeneratedMessage {
   RemoteTextFieldStatus ensureTextFieldStatus() => $_ensure(1);
 }
 
+/// IME wire fields follow androidtvremote2/remotemessage.proto.
+class RemoteImeShowRequest extends $pb.GeneratedMessage {
+  factory RemoteImeShowRequest({
+    RemoteTextFieldStatus? remoteTextFieldStatus,
+  }) {
+    final result = RemoteImeShowRequest._();
+    if (remoteTextFieldStatus != null)
+      result.remoteTextFieldStatus = remoteTextFieldStatus;
+    return result;
+  }
+
+  RemoteImeShowRequest._();
+
+  factory RemoteImeShowRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      RemoteImeShowRequest()..mergeFromBuffer(data, registry);
+  factory RemoteImeShowRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      RemoteImeShowRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'RemoteImeShowRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'remote'),
+      createEmptyInstance: RemoteImeShowRequest.$_createMessage)
+    ..aOM<RemoteTextFieldStatus>(
+        2, _omitFieldNames ? '' : 'remoteTextFieldStatus',
+        subBuilder: RemoteTextFieldStatus.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RemoteImeShowRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RemoteImeShowRequest copyWith(void Function(RemoteImeShowRequest) updates) =>
+      super.copyWith((message) => updates(message as RemoteImeShowRequest))
+          as RemoteImeShowRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use RemoteImeShowRequest() / RemoteImeShowRequest.new instead')
+  static RemoteImeShowRequest create() => RemoteImeShowRequest._();
+  static $pb.GeneratedMessage $_createMessage() => RemoteImeShowRequest._();
+  @$core.override
+  RemoteImeShowRequest createEmptyInstance() => RemoteImeShowRequest._();
+  @$core.pragma('dart2js:noInline')
+  static RemoteImeShowRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<RemoteImeShowRequest>(
+          RemoteImeShowRequest.$_createMessage);
+  static RemoteImeShowRequest? _defaultInstance;
+
+  @$pb.TagNumber(2)
+  RemoteTextFieldStatus get remoteTextFieldStatus => $_getN(0);
+  @$pb.TagNumber(2)
+  set remoteTextFieldStatus(RemoteTextFieldStatus value) =>
+      $_setField(2, value);
+  @$pb.TagNumber(2)
+  $core.bool hasRemoteTextFieldStatus() => $_has(0);
+  @$pb.TagNumber(2)
+  void clearRemoteTextFieldStatus() => $_clearField(2);
+  @$pb.TagNumber(2)
+  RemoteTextFieldStatus ensureRemoteTextFieldStatus() => $_ensure(0);
+}
+
+class RemoteImeObject extends $pb.GeneratedMessage {
+  factory RemoteImeObject({
+    $core.int? start,
+    $core.int? end,
+    $core.String? value,
+  }) {
+    final result = RemoteImeObject._();
+    if (start != null) result.start = start;
+    if (end != null) result.end = end;
+    if (value != null) result.value = value;
+    return result;
+  }
+
+  RemoteImeObject._();
+
+  factory RemoteImeObject.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      RemoteImeObject()..mergeFromBuffer(data, registry);
+  factory RemoteImeObject.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      RemoteImeObject()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'RemoteImeObject',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'remote'),
+      createEmptyInstance: RemoteImeObject.$_createMessage)
+    ..aI(1, _omitFieldNames ? '' : 'start')
+    ..aI(2, _omitFieldNames ? '' : 'end')
+    ..aOS(3, _omitFieldNames ? '' : 'value')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RemoteImeObject clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RemoteImeObject copyWith(void Function(RemoteImeObject) updates) =>
+      super.copyWith((message) => updates(message as RemoteImeObject))
+          as RemoteImeObject;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use RemoteImeObject() / RemoteImeObject.new instead')
+  static RemoteImeObject create() => RemoteImeObject._();
+  static $pb.GeneratedMessage $_createMessage() => RemoteImeObject._();
+  @$core.override
+  RemoteImeObject createEmptyInstance() => RemoteImeObject._();
+  @$core.pragma('dart2js:noInline')
+  static RemoteImeObject getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<RemoteImeObject>(
+          RemoteImeObject.$_createMessage);
+  static RemoteImeObject? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.int get start => $_getIZ(0);
+  @$pb.TagNumber(1)
+  set start($core.int value) => $_setSignedInt32(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasStart() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearStart() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.int get end => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set end($core.int value) => $_setSignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasEnd() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearEnd() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get value => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set value($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasValue() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearValue() => $_clearField(3);
+}
+
+class RemoteEditInfo extends $pb.GeneratedMessage {
+  factory RemoteEditInfo({
+    $core.int? insert,
+    RemoteImeObject? textFieldStatus,
+  }) {
+    final result = RemoteEditInfo._();
+    if (insert != null) result.insert = insert;
+    if (textFieldStatus != null) result.textFieldStatus = textFieldStatus;
+    return result;
+  }
+
+  RemoteEditInfo._();
+
+  factory RemoteEditInfo.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      RemoteEditInfo()..mergeFromBuffer(data, registry);
+  factory RemoteEditInfo.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      RemoteEditInfo()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'RemoteEditInfo',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'remote'),
+      createEmptyInstance: RemoteEditInfo.$_createMessage)
+    ..aI(1, _omitFieldNames ? '' : 'insert')
+    ..aOM<RemoteImeObject>(2, _omitFieldNames ? '' : 'textFieldStatus',
+        subBuilder: RemoteImeObject.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RemoteEditInfo clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RemoteEditInfo copyWith(void Function(RemoteEditInfo) updates) =>
+      super.copyWith((message) => updates(message as RemoteEditInfo))
+          as RemoteEditInfo;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use RemoteEditInfo() / RemoteEditInfo.new instead')
+  static RemoteEditInfo create() => RemoteEditInfo._();
+  static $pb.GeneratedMessage $_createMessage() => RemoteEditInfo._();
+  @$core.override
+  RemoteEditInfo createEmptyInstance() => RemoteEditInfo._();
+  @$core.pragma('dart2js:noInline')
+  static RemoteEditInfo getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<RemoteEditInfo>(
+          RemoteEditInfo.$_createMessage);
+  static RemoteEditInfo? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.int get insert => $_getIZ(0);
+  @$pb.TagNumber(1)
+  set insert($core.int value) => $_setSignedInt32(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasInsert() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearInsert() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  RemoteImeObject get textFieldStatus => $_getN(1);
+  @$pb.TagNumber(2)
+  set textFieldStatus(RemoteImeObject value) => $_setField(2, value);
+  @$pb.TagNumber(2)
+  $core.bool hasTextFieldStatus() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearTextFieldStatus() => $_clearField(2);
+  @$pb.TagNumber(2)
+  RemoteImeObject ensureTextFieldStatus() => $_ensure(1);
+}
+
+class RemoteImeBatchEdit extends $pb.GeneratedMessage {
+  factory RemoteImeBatchEdit({
+    $core.int? imeCounter,
+    $core.int? fieldCounter,
+    $core.Iterable<RemoteEditInfo>? editInfo,
+  }) {
+    final result = RemoteImeBatchEdit._();
+    if (imeCounter != null) result.imeCounter = imeCounter;
+    if (fieldCounter != null) result.fieldCounter = fieldCounter;
+    if (editInfo != null) result.editInfo.addAll(editInfo);
+    return result;
+  }
+
+  RemoteImeBatchEdit._();
+
+  factory RemoteImeBatchEdit.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      RemoteImeBatchEdit()..mergeFromBuffer(data, registry);
+  factory RemoteImeBatchEdit.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      RemoteImeBatchEdit()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'RemoteImeBatchEdit',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'remote'),
+      createEmptyInstance: RemoteImeBatchEdit.$_createMessage)
+    ..aI(1, _omitFieldNames ? '' : 'imeCounter')
+    ..aI(2, _omitFieldNames ? '' : 'fieldCounter')
+    ..pPM<RemoteEditInfo>(3, _omitFieldNames ? '' : 'editInfo',
+        subBuilder: RemoteEditInfo.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RemoteImeBatchEdit clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RemoteImeBatchEdit copyWith(void Function(RemoteImeBatchEdit) updates) =>
+      super.copyWith((message) => updates(message as RemoteImeBatchEdit))
+          as RemoteImeBatchEdit;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use RemoteImeBatchEdit() / RemoteImeBatchEdit.new instead')
+  static RemoteImeBatchEdit create() => RemoteImeBatchEdit._();
+  static $pb.GeneratedMessage $_createMessage() => RemoteImeBatchEdit._();
+  @$core.override
+  RemoteImeBatchEdit createEmptyInstance() => RemoteImeBatchEdit._();
+  @$core.pragma('dart2js:noInline')
+  static RemoteImeBatchEdit getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<RemoteImeBatchEdit>(
+          RemoteImeBatchEdit.$_createMessage);
+  static RemoteImeBatchEdit? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.int get imeCounter => $_getIZ(0);
+  @$pb.TagNumber(1)
+  set imeCounter($core.int value) => $_setSignedInt32(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasImeCounter() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearImeCounter() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.int get fieldCounter => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set fieldCounter($core.int value) => $_setSignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasFieldCounter() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearFieldCounter() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $pb.PbList<RemoteEditInfo> get editInfo => $_getList(2);
+}
+
 class RemoteKeyInject extends $pb.GeneratedMessage {
   factory RemoteKeyInject({
     $core.int? keyCode,
@@ -1152,6 +1446,8 @@ class RemoteMessage extends $pb.GeneratedMessage {
     RemotePingResponse? remotePingResponse,
     RemoteKeyInject? remoteKeyInject,
     RemoteImeKeyInject? remoteImeKeyInject,
+    RemoteImeBatchEdit? remoteImeBatchEdit,
+    RemoteImeShowRequest? remoteImeShowRequest,
     RemoteStart? remoteStart,
     RemoteSetVolumeLevel? remoteSetVolumeLevel,
     RemoteAppLinkLaunchRequest? remoteAppLinkLaunchRequest,
@@ -1166,6 +1462,10 @@ class RemoteMessage extends $pb.GeneratedMessage {
     if (remoteKeyInject != null) result.remoteKeyInject = remoteKeyInject;
     if (remoteImeKeyInject != null)
       result.remoteImeKeyInject = remoteImeKeyInject;
+    if (remoteImeBatchEdit != null)
+      result.remoteImeBatchEdit = remoteImeBatchEdit;
+    if (remoteImeShowRequest != null)
+      result.remoteImeShowRequest = remoteImeShowRequest;
     if (remoteStart != null) result.remoteStart = remoteStart;
     if (remoteSetVolumeLevel != null)
       result.remoteSetVolumeLevel = remoteSetVolumeLevel;
@@ -1201,6 +1501,11 @@ class RemoteMessage extends $pb.GeneratedMessage {
         subBuilder: RemoteKeyInject.$_createMessage)
     ..aOM<RemoteImeKeyInject>(20, _omitFieldNames ? '' : 'remoteImeKeyInject',
         subBuilder: RemoteImeKeyInject.$_createMessage)
+    ..aOM<RemoteImeBatchEdit>(21, _omitFieldNames ? '' : 'remoteImeBatchEdit',
+        subBuilder: RemoteImeBatchEdit.$_createMessage)
+    ..aOM<RemoteImeShowRequest>(
+        22, _omitFieldNames ? '' : 'remoteImeShowRequest',
+        subBuilder: RemoteImeShowRequest.$_createMessage)
     ..aOM<RemoteStart>(40, _omitFieldNames ? '' : 'remoteStart',
         subBuilder: RemoteStart.$_createMessage)
     ..aOM<RemoteSetVolumeLevel>(
@@ -1310,39 +1615,61 @@ class RemoteMessage extends $pb.GeneratedMessage {
   @$pb.TagNumber(20)
   RemoteImeKeyInject ensureRemoteImeKeyInject() => $_ensure(6);
 
+  @$pb.TagNumber(21)
+  RemoteImeBatchEdit get remoteImeBatchEdit => $_getN(7);
+  @$pb.TagNumber(21)
+  set remoteImeBatchEdit(RemoteImeBatchEdit value) => $_setField(21, value);
+  @$pb.TagNumber(21)
+  $core.bool hasRemoteImeBatchEdit() => $_has(7);
+  @$pb.TagNumber(21)
+  void clearRemoteImeBatchEdit() => $_clearField(21);
+  @$pb.TagNumber(21)
+  RemoteImeBatchEdit ensureRemoteImeBatchEdit() => $_ensure(7);
+
+  @$pb.TagNumber(22)
+  RemoteImeShowRequest get remoteImeShowRequest => $_getN(8);
+  @$pb.TagNumber(22)
+  set remoteImeShowRequest(RemoteImeShowRequest value) => $_setField(22, value);
+  @$pb.TagNumber(22)
+  $core.bool hasRemoteImeShowRequest() => $_has(8);
+  @$pb.TagNumber(22)
+  void clearRemoteImeShowRequest() => $_clearField(22);
+  @$pb.TagNumber(22)
+  RemoteImeShowRequest ensureRemoteImeShowRequest() => $_ensure(8);
+
   @$pb.TagNumber(40)
-  RemoteStart get remoteStart => $_getN(7);
+  RemoteStart get remoteStart => $_getN(9);
   @$pb.TagNumber(40)
   set remoteStart(RemoteStart value) => $_setField(40, value);
   @$pb.TagNumber(40)
-  $core.bool hasRemoteStart() => $_has(7);
+  $core.bool hasRemoteStart() => $_has(9);
   @$pb.TagNumber(40)
   void clearRemoteStart() => $_clearField(40);
   @$pb.TagNumber(40)
-  RemoteStart ensureRemoteStart() => $_ensure(7);
+  RemoteStart ensureRemoteStart() => $_ensure(9);
 
   @$pb.TagNumber(50)
-  RemoteSetVolumeLevel get remoteSetVolumeLevel => $_getN(8);
+  RemoteSetVolumeLevel get remoteSetVolumeLevel => $_getN(10);
   @$pb.TagNumber(50)
   set remoteSetVolumeLevel(RemoteSetVolumeLevel value) => $_setField(50, value);
   @$pb.TagNumber(50)
-  $core.bool hasRemoteSetVolumeLevel() => $_has(8);
+  $core.bool hasRemoteSetVolumeLevel() => $_has(10);
   @$pb.TagNumber(50)
   void clearRemoteSetVolumeLevel() => $_clearField(50);
   @$pb.TagNumber(50)
-  RemoteSetVolumeLevel ensureRemoteSetVolumeLevel() => $_ensure(8);
+  RemoteSetVolumeLevel ensureRemoteSetVolumeLevel() => $_ensure(10);
 
   @$pb.TagNumber(90)
-  RemoteAppLinkLaunchRequest get remoteAppLinkLaunchRequest => $_getN(9);
+  RemoteAppLinkLaunchRequest get remoteAppLinkLaunchRequest => $_getN(11);
   @$pb.TagNumber(90)
   set remoteAppLinkLaunchRequest(RemoteAppLinkLaunchRequest value) =>
       $_setField(90, value);
   @$pb.TagNumber(90)
-  $core.bool hasRemoteAppLinkLaunchRequest() => $_has(9);
+  $core.bool hasRemoteAppLinkLaunchRequest() => $_has(11);
   @$pb.TagNumber(90)
   void clearRemoteAppLinkLaunchRequest() => $_clearField(90);
   @$pb.TagNumber(90)
-  RemoteAppLinkLaunchRequest ensureRemoteAppLinkLaunchRequest() => $_ensure(9);
+  RemoteAppLinkLaunchRequest ensureRemoteAppLinkLaunchRequest() => $_ensure(11);
 }
 
 const $core.bool _omitFieldNames =

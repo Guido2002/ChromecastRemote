@@ -6,6 +6,10 @@ import '../../core/protocol/android_tv/certificate_manager.dart';
 import '../pairing/paired_device_store.dart';
 import '../apps/app_launcher.dart';
 import 'remote_controller.dart';
+import 'tv_keyboard_target.dart';
+import 'models/tv_reported_state.dart';
+import '../diagnostics/local_diagnostics.dart';
+import '../../core/protocol/android_tv/text_input.dart';
 
 /// Maps a [RemoteCommand] to its Android key code.
 int keyCodeForCommand(RemoteCommand command) => switch (command) {
@@ -34,7 +38,7 @@ int keyCodeForCommand(RemoteCommand command) => switch (command) {
 ///
 /// Pairing itself is handled by `AndroidTvPairingClient` (see the pairing
 /// feature); this controller reconnects using the persisted certificate pin.
-class AndroidTvRemoteController implements AppLaunchTarget {
+class AndroidTvRemoteController implements AppLaunchTarget, TvKeyboardTarget {
   AndroidTvRemoteController({
     required this.pairedDevice,
     required CertificateManager certificates,
@@ -171,7 +175,13 @@ class AndroidTvRemoteController implements AppLaunchTarget {
   @override
   Future<void> sendCommand(RemoteCommand command) async {
     if (!supports(command)) return;
+    final timer = Stopwatch()..start();
     _client.sendKey(keyCodeForCommand(command));
+    LocalDiagnostics.instance.record(
+      RemoteMetric.commandDispatch,
+      timer.elapsed,
+      success: _client.isConnected,
+    );
   }
 
   /// Sends a raw Android key code not covered by [RemoteCommand]
@@ -197,6 +207,40 @@ class AndroidTvRemoteController implements AppLaunchTarget {
   /// Updates when the foreground app on the TV changes.
   @override
   Stream<String> get currentAppUpdates => _client.currentAppUpdates;
+
+  @override
+  bool get textInputSupported =>
+      _state == RemoteConnectionState.connected &&
+      _client.activeFeatures & AndroidTvFeatures.ime != 0;
+
+  @override
+  bool get textEnterSupported =>
+      textInputSupported && _client.activeFeatures & AndroidTvFeatures.key != 0;
+
+  @override
+  AndroidTvTextSession? get textSession =>
+      textInputSupported ? _client.textInput.session : null;
+
+  @override
+  Stream<AndroidTvTextSession?> get textSessions => _client.textInput.changes;
+
+  @override
+  bool sendText(String text, AndroidTvTextSession session) =>
+      textInputSupported && _client.sendText(text, session);
+
+  @override
+  bool sendTextEnter(AndroidTvTextSession session) =>
+      textInputSupported && _client.sendTextEnter(session);
+
+  TvReportedState get reportedState =>
+      connectionState != RemoteConnectionState.connected
+      ? const TvReportedState()
+      : TvReportedState(
+          power: _client.powerReportedAt == null ? null : _client.isOn,
+          volume: _client.volumeInfo,
+          powerAt: _client.powerReportedAt,
+          volumeAt: _client.volumeReportedAt,
+        );
 
   /// Starts key repetition for a held button (volume / D-pad).
   void startLongPress(RemoteCommand command) {

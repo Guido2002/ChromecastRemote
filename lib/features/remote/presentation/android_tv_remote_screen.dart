@@ -17,6 +17,9 @@ import '../../pairing/presentation/pairing_screen.dart';
 import '../android_tv_remote_controller.dart';
 import '../remote_controller.dart';
 import 'widgets/directional_pad.dart';
+import 'tv_keyboard_sheet.dart';
+import '../../household/tv_preferences.dart';
+import '../../household/presentation/control_setup_sheet.dart';
 
 class AndroidTvRemoteScreen extends StatefulWidget {
   const AndroidTvRemoteScreen({
@@ -28,6 +31,8 @@ class AndroidTvRemoteScreen extends StatefulWidget {
     this.onForget,
     this.shortcutStore,
     this.onManageApps,
+    this.preferenceStore,
+    this.onRoutines,
     super.key,
   });
 
@@ -39,6 +44,8 @@ class AndroidTvRemoteScreen extends StatefulWidget {
   final VoidCallback? onForget;
   final AppShortcutStore? shortcutStore;
   final VoidCallback? onManageApps;
+  final TvPreferenceStore? preferenceStore;
+  final VoidCallback? onRoutines;
 
   @override
   State<AndroidTvRemoteScreen> createState() => _AndroidTvRemoteScreenState();
@@ -51,14 +58,50 @@ class _AndroidTvRemoteScreenState extends State<AndroidTvRemoteScreen>
   StreamSubscription<String>? _appSubscription;
   RemoteConnectionState _state = RemoteConnectionState.disconnected;
   String? _activePackage;
+  TvPreferences _preferences = const TvPreferences();
+  TvPreferenceStore get _preferenceStore =>
+      widget.preferenceStore ?? AppServices.instance.tvPreferences;
+  StreamSubscription<AndroidTvVolumeInfo>? _volumeSubscription;
+  StreamSubscription<bool>? _powerSubscription;
+  Timer? _reportTicker;
+  Future<void> _loadPreferences() async {
+    try {
+      final value = await _preferenceStore.load(
+        _controller.pairedDevice.serviceName,
+      );
+      if (mounted) setState(() => _preferences = value);
+    } catch (_) {
+      /* Defaults retain control if storage is temporarily unavailable. */
+    }
+  }
+
   bool get _connected => _state == RemoteConnectionState.connected;
   bool _supports(RemoteCommand command) =>
-      widget.active && _controller.supports(command);
+      widget.active &&
+      _controller.supports(command) &&
+      (command != RemoteCommand.power || _preferences.power) &&
+      (![
+            RemoteCommand.volumeUp,
+            RemoteCommand.volumeDown,
+            RemoteCommand.mute,
+          ].contains(command) ||
+          _preferences.volume);
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _preferenceStore.addListener(_loadPreferences);
+    unawaited(_loadPreferences());
+    _volumeSubscription = _controller.client.volumeInfoUpdates.listen((_) {
+      if (mounted) setState(() {});
+    });
+    _powerSubscription = _controller.client.powerStateUpdates.listen((_) {
+      if (mounted) setState(() {});
+    });
+    _reportTicker = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (mounted && widget.active) setState(() {});
+    });
     _state = _controller.connectionState;
     _activePackage = _controller.currentApp;
     _stateSubscription = _controller.connectionStates.listen((state) {
@@ -92,6 +135,10 @@ class _AndroidTvRemoteScreenState extends State<AndroidTvRemoteScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _preferenceStore.removeListener(_loadPreferences);
+    _volumeSubscription?.cancel();
+    _powerSubscription?.cancel();
+    _reportTicker?.cancel();
     _controller.cancelHeldCommands();
     _stateSubscription?.cancel();
     _appSubscription?.cancel();
@@ -147,6 +194,15 @@ class _AndroidTvRemoteScreenState extends State<AndroidTvRemoteScreen>
     } else {
       unawaited(_controller.connect());
     }
+  }
+
+  void _keyboard() {
+    _controller.cancelHeldCommands();
+    showTvKeyboard(
+      context,
+      target: _controller,
+      isCurrentTarget: () => mounted && widget.active && _connected,
+    );
   }
 
   void _moreControls() {
@@ -223,6 +279,13 @@ class _AndroidTvRemoteScreenState extends State<AndroidTvRemoteScreen>
                 ),
               ),
               IconButton(
+                tooltip: 'Phone keyboard',
+                onPressed: widget.active && _controller.textInputSupported
+                    ? _keyboard
+                    : null,
+                icon: const Icon(Icons.keyboard_outlined),
+              ),
+              IconButton(
                 tooltip: 'Power',
                 onPressed: _supports(RemoteCommand.power)
                     ? () => _send(RemoteCommand.power)
@@ -234,6 +297,16 @@ class _AndroidTvRemoteScreenState extends State<AndroidTvRemoteScreen>
                 onSelected: (value) {
                   _controller.cancelHeldCommands();
                   switch (value) {
+                    case 'routines':
+                      widget.onRoutines?.call();
+                    case 'setup':
+                      unawaited(
+                        showControlSetup(
+                          context,
+                          _controller,
+                          _preferenceStore,
+                        ),
+                      );
                     case 'media':
                       _moreControls();
                     case 'search':
@@ -245,6 +318,15 @@ class _AndroidTvRemoteScreenState extends State<AndroidTvRemoteScreen>
                   }
                 },
                 itemBuilder: (_) => [
+                  if (widget.onRoutines != null)
+                    const PopupMenuItem(
+                      value: 'routines',
+                      child: Text('TV and audio routines'),
+                    ),
+                  const PopupMenuItem(
+                    value: 'setup',
+                    child: Text('Controls and room setup'),
+                  ),
                   const PopupMenuItem(
                     value: 'media',
                     child: Text('More playback controls'),
@@ -281,7 +363,7 @@ class _AndroidTvRemoteScreenState extends State<AndroidTvRemoteScreen>
                   constraints.maxWidth >= 700 && constraints.maxHeight >= 550;
               final padSize = (constraints.maxHeight - 246).clamp(
                 160.0,
-                tablet ? 340.0 : 270.0,
+                tablet || _preferences.eyesUp ? 340.0 : 270.0,
               );
               return SingleChildScrollView(
                 key: PageStorageKey(
@@ -325,6 +407,14 @@ class _AndroidTvRemoteScreenState extends State<AndroidTvRemoteScreen>
                             ],
                           ),
                         ),
+                      if (_preferences.eyesUp)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Text(
+                            'Eyes-up mode · larger navigation',
+                            style: Theme.of(context).textTheme.labelMedium,
+                          ),
+                        ),
                       if (tablet)
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -335,7 +425,7 @@ class _AndroidTvRemoteScreenState extends State<AndroidTvRemoteScreen>
                               child: Column(
                                 children: [
                                   _foregroundApp(),
-                                  _shortcuts(),
+                                  if (!_preferences.eyesUp) _shortcuts(),
                                   const SizedBox(height: 24),
                                   _MediaControlsSection(
                                     enabled: _supports(RemoteCommand.playPause),
@@ -350,7 +440,7 @@ class _AndroidTvRemoteScreenState extends State<AndroidTvRemoteScreen>
                         _essentialControls(padSize),
                         const SizedBox(height: 12),
                         _foregroundApp(),
-                        _shortcuts(),
+                        if (!_preferences.eyesUp) _shortcuts(),
                       ],
                     ],
                   ),
@@ -447,10 +537,11 @@ class _AndroidTvRemoteScreenState extends State<AndroidTvRemoteScreen>
         ],
       ),
       if (_connected &&
-          !_controller.capabilities.contains(RemoteCapability.volume))
-        const Padding(
-          padding: EdgeInsets.only(top: 8),
-          child: Text('Volume is not available through this TV connection.'),
+          (!_preferences.volume ||
+              !_controller.capabilities.contains(RemoteCapability.volume)))
+        Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Text(_preferences.volume ? 'Volume is not available through this TV connection.' : 'Volume is disabled in this TV’s control setup.'),
         ),
     ],
   );
@@ -467,7 +558,8 @@ class _AndroidTvRemoteScreenState extends State<AndroidTvRemoteScreen>
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Text(
-        _connected && name != null ? 'On TV: $name' : 'TV activity unavailable',
+        '${_connected && name != null ? 'On TV: $name' : 'TV activity unavailable'}\n${_controller.reportedState.describe(DateTime.now().toUtc())}',
+        textAlign: TextAlign.center,
         style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
       ),
     );

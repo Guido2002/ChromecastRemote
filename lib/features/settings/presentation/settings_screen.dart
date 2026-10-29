@@ -6,6 +6,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../../shared/presentation/adaptive_layout.dart';
 import '../../update/presentation/update_actions.dart';
+import '../../diagnostics/presentation/diagnostics_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -110,6 +111,19 @@ class SettingsView extends StatelessWidget {
                             ],
                           ),
                         ),
+                      ),
+                    ),
+                  ),
+                  const Divider(height: 1, indent: 56),
+                  ListTile(
+                    leading: const Icon(Icons.speed_outlined),
+                    title: const Text('Local measurements'),
+                    subtitle: const Text(
+                      'Connection and request timing on this phone.',
+                    ),
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const DiagnosticsScreen(),
                       ),
                     ),
                   ),

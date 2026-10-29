@@ -4,6 +4,7 @@ import '../../core/protocol/android_tv/certificate_manager.dart';
 import '../pairing/paired_device_store.dart';
 import 'android_tv_remote_controller.dart';
 import 'remote_controller.dart';
+import '../diagnostics/local_diagnostics.dart';
 
 /// Keeps one Android TV connection alive while the user moves between tabs.
 class AndroidTvConnectionManager {
@@ -46,6 +47,7 @@ class AndroidTvConnectionManager {
       _serialized(() => _connect(device));
 
   Future<AndroidTvRemoteController> _connect(PairedAndroidTv device) async {
+    final timer = Stopwatch()..start();
     final host = await resolveHost?.call(device.serviceName);
     if (host != null && host != device.lastHost) {
       device = device.copyWithHost(host);
@@ -70,6 +72,11 @@ class AndroidTvConnectionManager {
       protocol: 'androidTvRemote',
     );
     await target.connect();
+    LocalDiagnostics.instance.record(
+      RemoteMetric.connection,
+      timer.elapsed,
+      success: target.connectionState == RemoteConnectionState.connected,
+    );
     if (target.connectionState == RemoteConnectionState.connected) {
       final updated = device.copyWith(lastConnectedAt: DateTime.now().toUtc());
       target.updatePairedDevice(updated);
