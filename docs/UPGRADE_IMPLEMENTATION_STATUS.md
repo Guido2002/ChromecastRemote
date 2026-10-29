@@ -2,9 +2,21 @@
 
 Date: 29 October 2026
 
-Release: **v0.11.0, Android build 13**. This tracks [the upgrade plan](APP_UPGRADE_PLAN.md). All proposed feature areas now have software implementations, including explicitly limited experimental features. Physical-device validation, user research, and iOS build verification remain open; they are not completed by an Android release.
+Release: **v0.12.0, Android build 14**. This tracks [the upgrade plan](APP_UPGRADE_PLAN.md). All proposed feature areas now have software implementations, including explicitly limited experimental features. Physical-device validation, user research, and iOS build verification remain open; they are not completed by an Android release.
 
-See [release notes](releases/v0.11.0.md), [release readiness](RELEASE_READINESS.md), and [keyboard preview](KEYBOARD_PREVIEW.md).
+See [release notes](releases/v0.12.0.md), [release readiness](RELEASE_READINESS.md), and [keyboard preview](KEYBOARD_PREVIEW.md).
+
+## Added in v0.12.0
+
+[Voice search, Smart Now Playing and haptics](VOICE_AND_NOW_PLAYING.md) are included in this release:
+
+- Hold-to-talk microphone capture with negotiated TV voice routing, permission handling, ten-second limit, and cancellation on release/target/lifecycle changes.
+- Automatic Cast media view with artwork/title/progress/transport/volume, receiver identity checks, a manual TV remote override, and return when playback ends.
+- A persistent haptic-feedback setting and consistent single-pulse feedback for remote actions.
+
+Ordinary Android TV apps still expose only verified foreground/state reports and available key commands. These changes are included in the v0.12.0 APK. Physical voice/Cast and iOS runtime checks remain outstanding.
+
+Release verification: clean static analysis, **146 tests passed**, Android debug and signed release builds passed, and iOS permission plist syntax validated. Signing continuity against v0.11.0 is preserved.
 
 ## Added in v0.11.0
 
@@ -32,7 +44,7 @@ See [release notes](releases/v0.11.0.md), [release readiness](RELEASE_READINESS.
 | NAV02 | Indexed destinations preserve search and scroll context. Disconnected launches retain the requested app and require confirmation of the selected TV. Launch callbacks check target identity. | Direct-launch tests; full pairing-to-launch flow still needs hardware |
 | REM01 | Navigation, combined play/pause, mute, and volume precede activity and favorites. Extended playback actions moved into Remote options. Available height controls D-pad sizing. | Layout and command tests at 360×640, 360×800, 700×900, and 900×500 logical pixels |
 | REM02 | Full directional quadrants respond to input; OK is a separate center target. Held commands are released when controls deactivate, routes change, the app backgrounds, or the session closes. | Quadrant hit tests and lifecycle implementation; sustained TV key-repeat needs hardware |
-| REM03 | Search replaces microphone branding. Foreground status says On TV. Power follows negotiated support; incoming mute state informs its control. Playback toggle does not claim a known playing state. | Code and layout tests; device-specific reporting remains to verify |
+| REM03 | Search is a key action; v0.12.0 adds a separate negotiated microphone action. Foreground status says On TV. Power follows negotiated support; incoming mute state informs its control. Playback toggle does not claim a known playing state. | Code and layout tests; device-specific reporting remains to verify |
 | DEV01 | One list combines saved TVs and nearby services. Labels distinguish TV navigation from Cast sessions. Remembered Cast identities are separate from trusted TV pairings. | Emulator discovery and persistence tests; endpoints are never merged by name |
 | APP01 | App rows request launch directly. Favorites are selected and ordered per TV. Custom destinations appear in the same searchable library. Technical details are optional. | Search, persistence, migration, ordering, and direct-launch tests |
 | APP02 | A shared launch operation distinguishes confirmed, unconfirmed, failed, and cancelled outcomes. Foreground reports provide confirmation. Automatic timed Play Store selection was removed. | Outcome tests verify that transmission or elapsed time never implies success |
@@ -55,7 +67,7 @@ Existing pairing certificates, saved devices, global/per-TV favorites and custom
 
 The release APK retains package `com.example.chromecast_remote` and the v0.10.0 signing certificate. An emulator in-place update retained a custom destination and its favorite status without uninstalling. This does not establish physical-TV pairing or every older-version migration.
 
-## Validation
+## v0.11.0 validation
 
 - `flutter analyze`: no issues.
 - `flutter test --reporter expanded`: **128 tests passed**.

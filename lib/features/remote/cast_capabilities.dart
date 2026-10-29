@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/services.dart';
 
 class CastCapabilities {
@@ -32,7 +33,13 @@ class CastCapabilities {
   static const _channel = MethodChannel('chromecast_remote/cast_capabilities');
   static Future<CastCapabilities?> read() async {
     try {
-      return parse(await _channel.invokeMethod<Object?>('read'));
+      return parse(
+        await _channel
+            .invokeMethod<Object?>('read')
+            .timeout(const Duration(seconds: 2)),
+      );
+    } on TimeoutException {
+      return null;
     } on PlatformException {
       return null;
     } on MissingPluginException {

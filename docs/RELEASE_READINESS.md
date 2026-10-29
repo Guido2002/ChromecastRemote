@@ -75,3 +75,15 @@ Three valid force-stopped v0.11.0 emulator launches reported Android Activity `T
 Artifact: `ChromecastRemote-v0.11.0.apk`, 61,791,914 bytes.
 
 SHA-256: `fc75b9f92a9962f54d433719ccb8a75b7f47eb414c792739c1bb499752760ab2`.
+
+## v0.12.0 release verification
+
+On 29 October 2026, static analysis reported no issues and all 146 automated tests passed. Android debug and signed release APK builds passed. The release retains `com.example.chromecast_remote`, reports version `0.12.0`, code `14`, and its APK signature/certificate matches the published v0.11.0 artifact.
+
+An Android API 37 emulator updated from v0.11.0 using `adb install -r` without uninstalling. A saved custom destination and its selected favorite status survived and rendered in Apps. The installed package reports version 0.12.0/build 14. Microphone permission remains ungranted until requested; no audio capture or commands to physical TVs were exercised during release verification.
+
+Voice search, Smart Now Playing and haptics are included; [feature verification and boundaries](VOICE_AND_NOW_PLAYING.md) describe the automated checks and outstanding physical-TV/iOS work. No iOS binary is distributed.
+
+Artifact: `ChromecastRemote-v0.12.0.apk`, 62,022,178 bytes.
+
+SHA-256: `a0d022c85e6aefb2e3f807a534a5db280e1a77644f020fb7ef8456510ceaf306`.

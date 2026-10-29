@@ -1,7 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import '../../../shared/presentation/remote_haptics.dart';
+import 'widgets/voice_search_button.dart';
 
 import '../../../core/app_services.dart';
 import '../../../core/protocol/android_tv/android_key_codes.dart';
@@ -58,6 +59,7 @@ class _AndroidTvRemoteScreenState extends State<AndroidTvRemoteScreen>
   StreamSubscription<String>? _appSubscription;
   RemoteConnectionState _state = RemoteConnectionState.disconnected;
   String? _activePackage;
+  String? _voiceStatus;
   TvPreferences _preferences = const TvPreferences();
   TvPreferenceStore get _preferenceStore =>
       widget.preferenceStore ?? AppServices.instance.tvPreferences;
@@ -159,6 +161,7 @@ class _AndroidTvRemoteScreenState extends State<AndroidTvRemoteScreen>
   };
 
   Future<void> _launchApp(TvApp app) async {
+    unawaited(RemoteHaptics.instance.press());
     final result = await launchTvApp(
       _controller,
       app,
@@ -278,6 +281,14 @@ class _AndroidTvRemoteScreenState extends State<AndroidTvRemoteScreen>
                   ),
                 ),
               ),
+              VoiceSearchButton(
+                key: ObjectKey(_controller),
+                target: _controller,
+                active: widget.active && _connected,
+                onStatusChanged: (status) {
+                  if (mounted) setState(() => _voiceStatus = status);
+                },
+              ),
               IconButton(
                 tooltip: 'Phone keyboard',
                 onPressed: widget.active && _controller.textInputSupported
@@ -288,7 +299,10 @@ class _AndroidTvRemoteScreenState extends State<AndroidTvRemoteScreen>
               IconButton(
                 tooltip: 'Power',
                 onPressed: _supports(RemoteCommand.power)
-                    ? () => _send(RemoteCommand.power)
+                    ? () {
+                        unawaited(RemoteHaptics.instance.press());
+                        _send(RemoteCommand.power);
+                      }
                     : null,
                 icon: const Icon(Icons.power_settings_new_rounded),
               ),
@@ -310,6 +324,7 @@ class _AndroidTvRemoteScreenState extends State<AndroidTvRemoteScreen>
                     case 'media':
                       _moreControls();
                     case 'search':
+                      unawaited(RemoteHaptics.instance.press());
                       _controller.sendRawKey(AndroidKeyCodes.search);
                     case 'pair':
                       unawaited(_pairAgain());
@@ -353,6 +368,14 @@ class _AndroidTvRemoteScreenState extends State<AndroidTvRemoteScreen>
             ],
           ),
         ),
+        if (_voiceStatus != null && widget.active)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+            child: Semantics(
+              liveRegion: true,
+              child: Text(_voiceStatus!, textAlign: TextAlign.center),
+            ),
+          ),
         if (_state == RemoteConnectionState.connecting ||
             _state == RemoteConnectionState.reconnecting)
           const LinearProgressIndicator(minHeight: 2),
@@ -541,7 +564,11 @@ class _AndroidTvRemoteScreenState extends State<AndroidTvRemoteScreen>
               !_controller.capabilities.contains(RemoteCapability.volume)))
         Padding(
           padding: const EdgeInsets.only(top: 8),
-          child: Text(_preferences.volume ? 'Volume is not available through this TV connection.' : 'Volume is disabled in this TV’s control setup.'),
+          child: Text(
+            _preferences.volume
+                ? 'Volume is not available through this TV connection.'
+                : 'Volume is disabled in this TV’s control setup.',
+          ),
         ),
     ],
   );
@@ -592,7 +619,9 @@ class _MediaControlsSection extends StatelessWidget {
   final ValueChanged<RemoteCommand> onCommand;
 
   void _tap(RemoteCommand command) {
-    HapticFeedback.lightImpact();
+    if (command == RemoteCommand.playPause) {
+      unawaited(RemoteHaptics.instance.press());
+    }
     onCommand(command);
   }
 
@@ -721,9 +750,10 @@ class _RoundRemoteButton extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
     return IconButton(
       tooltip: tooltip,
+      enableFeedback: false,
       onPressed: enabled
           ? () {
-              HapticFeedback.lightImpact();
+              unawaited(RemoteHaptics.instance.press());
               onPressed();
             }
           : null,
@@ -833,17 +863,28 @@ class _VolumeHalf extends StatelessWidget {
       enabled: enabled,
       label: tooltip,
       excludeSemantics: true,
-      onTap: enabled ? onTap : null,
+      onTap: enabled
+          ? () {
+              unawaited(RemoteHaptics.instance.press());
+              onTap();
+            }
+          : null,
       child: GestureDetector(
-        onLongPressStart: enabled ? (_) => onLongStart() : null,
+        onLongPressStart: enabled
+            ? (_) {
+                unawaited(RemoteHaptics.instance.press());
+                onLongStart();
+              }
+            : null,
         onLongPressEnd: enabled ? (_) => onLongEnd() : null,
         onLongPressCancel: enabled ? onLongEnd : null,
         child: Material(
           color: Colors.transparent,
           child: InkWell(
+            enableFeedback: false,
             onTap: enabled
                 ? () {
-                    HapticFeedback.lightImpact();
+                    unawaited(RemoteHaptics.instance.press());
                     onTap();
                   }
                 : null,

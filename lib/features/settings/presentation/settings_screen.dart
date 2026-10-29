@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../../shared/presentation/adaptive_layout.dart';
+import '../../../shared/presentation/remote_haptics.dart';
 import '../../update/presentation/update_actions.dart';
 import '../../diagnostics/presentation/diagnostics_screen.dart';
 
@@ -35,6 +36,33 @@ class SettingsView extends StatelessWidget {
             Card(
               child: Column(
                 children: [
+                  ListenableBuilder(
+                    listenable: RemoteHaptics.instance,
+                    builder: (context, _) => SwitchListTile.adaptive(
+                      secondary: const Icon(Icons.vibration_rounded),
+                      title: const Text('Haptic feedback'),
+                      subtitle: const Text(
+                        'Feel a light response when pressing remote controls.',
+                      ),
+                      value: RemoteHaptics.instance.enabled,
+                      onChanged: (value) async {
+                        try {
+                          await RemoteHaptics.instance.setEnabled(value);
+                        } catch (_) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Could not save haptic preference. Try again.',
+                                ),
+                              ),
+                            );
+                          }
+                        }
+                      },
+                    ),
+                  ),
+                  const Divider(height: 1, indent: 56),
                   if (Platform.isAndroid) ...[
                     ListTile(
                       leading: const Icon(Icons.bolt_outlined),

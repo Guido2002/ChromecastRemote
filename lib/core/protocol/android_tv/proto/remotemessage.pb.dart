@@ -923,6 +923,204 @@ class RemoteImeBatchEdit extends $pb.GeneratedMessage {
   $pb.PbList<RemoteEditInfo> get editInfo => $_getList(2);
 }
 
+/// PCM16 little-endian, 8 kHz mono; routing comes from the TV's response
+/// to KEYCODE_SEARCH. See androidtvremote2's voice implementation.
+class RemoteVoiceBegin extends $pb.GeneratedMessage {
+  factory RemoteVoiceBegin({
+    $core.int? sessionId,
+    $core.String? packageName,
+  }) {
+    final result = RemoteVoiceBegin._();
+    if (sessionId != null) result.sessionId = sessionId;
+    if (packageName != null) result.packageName = packageName;
+    return result;
+  }
+
+  RemoteVoiceBegin._();
+
+  factory RemoteVoiceBegin.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      RemoteVoiceBegin()..mergeFromBuffer(data, registry);
+  factory RemoteVoiceBegin.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      RemoteVoiceBegin()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'RemoteVoiceBegin',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'remote'),
+      createEmptyInstance: RemoteVoiceBegin.$_createMessage)
+    ..aI(1, _omitFieldNames ? '' : 'sessionId')
+    ..aOS(2, _omitFieldNames ? '' : 'packageName')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RemoteVoiceBegin clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RemoteVoiceBegin copyWith(void Function(RemoteVoiceBegin) updates) =>
+      super.copyWith((message) => updates(message as RemoteVoiceBegin))
+          as RemoteVoiceBegin;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use RemoteVoiceBegin() / RemoteVoiceBegin.new instead')
+  static RemoteVoiceBegin create() => RemoteVoiceBegin._();
+  static $pb.GeneratedMessage $_createMessage() => RemoteVoiceBegin._();
+  @$core.override
+  RemoteVoiceBegin createEmptyInstance() => RemoteVoiceBegin._();
+  @$core.pragma('dart2js:noInline')
+  static RemoteVoiceBegin getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<RemoteVoiceBegin>(
+          RemoteVoiceBegin.$_createMessage);
+  static RemoteVoiceBegin? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.int get sessionId => $_getIZ(0);
+  @$pb.TagNumber(1)
+  set sessionId($core.int value) => $_setSignedInt32(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSessionId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSessionId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get packageName => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set packageName($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasPackageName() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearPackageName() => $_clearField(2);
+}
+
+class RemoteVoicePayload extends $pb.GeneratedMessage {
+  factory RemoteVoicePayload({
+    $core.int? sessionId,
+    $core.List<$core.int>? samples,
+  }) {
+    final result = RemoteVoicePayload._();
+    if (sessionId != null) result.sessionId = sessionId;
+    if (samples != null) result.samples = samples;
+    return result;
+  }
+
+  RemoteVoicePayload._();
+
+  factory RemoteVoicePayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      RemoteVoicePayload()..mergeFromBuffer(data, registry);
+  factory RemoteVoicePayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      RemoteVoicePayload()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'RemoteVoicePayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'remote'),
+      createEmptyInstance: RemoteVoicePayload.$_createMessage)
+    ..aI(1, _omitFieldNames ? '' : 'sessionId')
+    ..a<$core.List<$core.int>>(
+        2, _omitFieldNames ? '' : 'samples', $pb.PbFieldType.OY)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RemoteVoicePayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RemoteVoicePayload copyWith(void Function(RemoteVoicePayload) updates) =>
+      super.copyWith((message) => updates(message as RemoteVoicePayload))
+          as RemoteVoicePayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use RemoteVoicePayload() / RemoteVoicePayload.new instead')
+  static RemoteVoicePayload create() => RemoteVoicePayload._();
+  static $pb.GeneratedMessage $_createMessage() => RemoteVoicePayload._();
+  @$core.override
+  RemoteVoicePayload createEmptyInstance() => RemoteVoicePayload._();
+  @$core.pragma('dart2js:noInline')
+  static RemoteVoicePayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<RemoteVoicePayload>(
+          RemoteVoicePayload.$_createMessage);
+  static RemoteVoicePayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.int get sessionId => $_getIZ(0);
+  @$pb.TagNumber(1)
+  set sessionId($core.int value) => $_setSignedInt32(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSessionId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSessionId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.List<$core.int> get samples => $_getN(1);
+  @$pb.TagNumber(2)
+  set samples($core.List<$core.int> value) => $_setBytes(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasSamples() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearSamples() => $_clearField(2);
+}
+
+class RemoteVoiceEnd extends $pb.GeneratedMessage {
+  factory RemoteVoiceEnd({
+    $core.int? sessionId,
+  }) {
+    final result = RemoteVoiceEnd._();
+    if (sessionId != null) result.sessionId = sessionId;
+    return result;
+  }
+
+  RemoteVoiceEnd._();
+
+  factory RemoteVoiceEnd.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      RemoteVoiceEnd()..mergeFromBuffer(data, registry);
+  factory RemoteVoiceEnd.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      RemoteVoiceEnd()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'RemoteVoiceEnd',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'remote'),
+      createEmptyInstance: RemoteVoiceEnd.$_createMessage)
+    ..aI(1, _omitFieldNames ? '' : 'sessionId')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RemoteVoiceEnd clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RemoteVoiceEnd copyWith(void Function(RemoteVoiceEnd) updates) =>
+      super.copyWith((message) => updates(message as RemoteVoiceEnd))
+          as RemoteVoiceEnd;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use RemoteVoiceEnd() / RemoteVoiceEnd.new instead')
+  static RemoteVoiceEnd create() => RemoteVoiceEnd._();
+  static $pb.GeneratedMessage $_createMessage() => RemoteVoiceEnd._();
+  @$core.override
+  RemoteVoiceEnd createEmptyInstance() => RemoteVoiceEnd._();
+  @$core.pragma('dart2js:noInline')
+  static RemoteVoiceEnd getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<RemoteVoiceEnd>(
+          RemoteVoiceEnd.$_createMessage);
+  static RemoteVoiceEnd? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.int get sessionId => $_getIZ(0);
+  @$pb.TagNumber(1)
+  set sessionId($core.int value) => $_setSignedInt32(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSessionId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSessionId() => $_clearField(1);
+}
+
 class RemoteKeyInject extends $pb.GeneratedMessage {
   factory RemoteKeyInject({
     $core.int? keyCode,
@@ -1448,6 +1646,9 @@ class RemoteMessage extends $pb.GeneratedMessage {
     RemoteImeKeyInject? remoteImeKeyInject,
     RemoteImeBatchEdit? remoteImeBatchEdit,
     RemoteImeShowRequest? remoteImeShowRequest,
+    RemoteVoiceBegin? remoteVoiceBegin,
+    RemoteVoicePayload? remoteVoicePayload,
+    RemoteVoiceEnd? remoteVoiceEnd,
     RemoteStart? remoteStart,
     RemoteSetVolumeLevel? remoteSetVolumeLevel,
     RemoteAppLinkLaunchRequest? remoteAppLinkLaunchRequest,
@@ -1466,6 +1667,10 @@ class RemoteMessage extends $pb.GeneratedMessage {
       result.remoteImeBatchEdit = remoteImeBatchEdit;
     if (remoteImeShowRequest != null)
       result.remoteImeShowRequest = remoteImeShowRequest;
+    if (remoteVoiceBegin != null) result.remoteVoiceBegin = remoteVoiceBegin;
+    if (remoteVoicePayload != null)
+      result.remoteVoicePayload = remoteVoicePayload;
+    if (remoteVoiceEnd != null) result.remoteVoiceEnd = remoteVoiceEnd;
     if (remoteStart != null) result.remoteStart = remoteStart;
     if (remoteSetVolumeLevel != null)
       result.remoteSetVolumeLevel = remoteSetVolumeLevel;
@@ -1506,6 +1711,12 @@ class RemoteMessage extends $pb.GeneratedMessage {
     ..aOM<RemoteImeShowRequest>(
         22, _omitFieldNames ? '' : 'remoteImeShowRequest',
         subBuilder: RemoteImeShowRequest.$_createMessage)
+    ..aOM<RemoteVoiceBegin>(30, _omitFieldNames ? '' : 'remoteVoiceBegin',
+        subBuilder: RemoteVoiceBegin.$_createMessage)
+    ..aOM<RemoteVoicePayload>(31, _omitFieldNames ? '' : 'remoteVoicePayload',
+        subBuilder: RemoteVoicePayload.$_createMessage)
+    ..aOM<RemoteVoiceEnd>(32, _omitFieldNames ? '' : 'remoteVoiceEnd',
+        subBuilder: RemoteVoiceEnd.$_createMessage)
     ..aOM<RemoteStart>(40, _omitFieldNames ? '' : 'remoteStart',
         subBuilder: RemoteStart.$_createMessage)
     ..aOM<RemoteSetVolumeLevel>(
@@ -1637,39 +1848,72 @@ class RemoteMessage extends $pb.GeneratedMessage {
   @$pb.TagNumber(22)
   RemoteImeShowRequest ensureRemoteImeShowRequest() => $_ensure(8);
 
+  @$pb.TagNumber(30)
+  RemoteVoiceBegin get remoteVoiceBegin => $_getN(9);
+  @$pb.TagNumber(30)
+  set remoteVoiceBegin(RemoteVoiceBegin value) => $_setField(30, value);
+  @$pb.TagNumber(30)
+  $core.bool hasRemoteVoiceBegin() => $_has(9);
+  @$pb.TagNumber(30)
+  void clearRemoteVoiceBegin() => $_clearField(30);
+  @$pb.TagNumber(30)
+  RemoteVoiceBegin ensureRemoteVoiceBegin() => $_ensure(9);
+
+  @$pb.TagNumber(31)
+  RemoteVoicePayload get remoteVoicePayload => $_getN(10);
+  @$pb.TagNumber(31)
+  set remoteVoicePayload(RemoteVoicePayload value) => $_setField(31, value);
+  @$pb.TagNumber(31)
+  $core.bool hasRemoteVoicePayload() => $_has(10);
+  @$pb.TagNumber(31)
+  void clearRemoteVoicePayload() => $_clearField(31);
+  @$pb.TagNumber(31)
+  RemoteVoicePayload ensureRemoteVoicePayload() => $_ensure(10);
+
+  @$pb.TagNumber(32)
+  RemoteVoiceEnd get remoteVoiceEnd => $_getN(11);
+  @$pb.TagNumber(32)
+  set remoteVoiceEnd(RemoteVoiceEnd value) => $_setField(32, value);
+  @$pb.TagNumber(32)
+  $core.bool hasRemoteVoiceEnd() => $_has(11);
+  @$pb.TagNumber(32)
+  void clearRemoteVoiceEnd() => $_clearField(32);
+  @$pb.TagNumber(32)
+  RemoteVoiceEnd ensureRemoteVoiceEnd() => $_ensure(11);
+
   @$pb.TagNumber(40)
-  RemoteStart get remoteStart => $_getN(9);
+  RemoteStart get remoteStart => $_getN(12);
   @$pb.TagNumber(40)
   set remoteStart(RemoteStart value) => $_setField(40, value);
   @$pb.TagNumber(40)
-  $core.bool hasRemoteStart() => $_has(9);
+  $core.bool hasRemoteStart() => $_has(12);
   @$pb.TagNumber(40)
   void clearRemoteStart() => $_clearField(40);
   @$pb.TagNumber(40)
-  RemoteStart ensureRemoteStart() => $_ensure(9);
+  RemoteStart ensureRemoteStart() => $_ensure(12);
 
   @$pb.TagNumber(50)
-  RemoteSetVolumeLevel get remoteSetVolumeLevel => $_getN(10);
+  RemoteSetVolumeLevel get remoteSetVolumeLevel => $_getN(13);
   @$pb.TagNumber(50)
   set remoteSetVolumeLevel(RemoteSetVolumeLevel value) => $_setField(50, value);
   @$pb.TagNumber(50)
-  $core.bool hasRemoteSetVolumeLevel() => $_has(10);
+  $core.bool hasRemoteSetVolumeLevel() => $_has(13);
   @$pb.TagNumber(50)
   void clearRemoteSetVolumeLevel() => $_clearField(50);
   @$pb.TagNumber(50)
-  RemoteSetVolumeLevel ensureRemoteSetVolumeLevel() => $_ensure(10);
+  RemoteSetVolumeLevel ensureRemoteSetVolumeLevel() => $_ensure(13);
 
   @$pb.TagNumber(90)
-  RemoteAppLinkLaunchRequest get remoteAppLinkLaunchRequest => $_getN(11);
+  RemoteAppLinkLaunchRequest get remoteAppLinkLaunchRequest => $_getN(14);
   @$pb.TagNumber(90)
   set remoteAppLinkLaunchRequest(RemoteAppLinkLaunchRequest value) =>
       $_setField(90, value);
   @$pb.TagNumber(90)
-  $core.bool hasRemoteAppLinkLaunchRequest() => $_has(11);
+  $core.bool hasRemoteAppLinkLaunchRequest() => $_has(14);
   @$pb.TagNumber(90)
   void clearRemoteAppLinkLaunchRequest() => $_clearField(90);
   @$pb.TagNumber(90)
-  RemoteAppLinkLaunchRequest ensureRemoteAppLinkLaunchRequest() => $_ensure(11);
+  RemoteAppLinkLaunchRequest ensureRemoteAppLinkLaunchRequest() => $_ensure(14);
 }
 
 const $core.bool _omitFieldNames =

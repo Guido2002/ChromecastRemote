@@ -214,6 +214,8 @@ ThemeData buildAppTheme() {
       },
     ),
     tooltipTheme: TooltipThemeData(
+      // Remote actions own tactile feedback and its saved on/off preference.
+      enableFeedback: false,
       decoration: BoxDecoration(
         color: scheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(10),

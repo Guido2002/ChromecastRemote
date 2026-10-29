@@ -65,4 +65,4 @@ Physical Android TV and application compatibility are not established by these t
 | Enter or search submission | Verify submission occurs only from the explicit TV Enter action |
 | TalkBack and the visible phone keyboard | Verify focus, announcements, scrolling, and clear/resume actions |
 
-Full TV-text mirroring, cursor synchronization, automatic typing, voice streaming, and Cast keyboard input are outside this preview.
+Full TV-text mirroring, cursor synchronization, automatic typing, voice streaming, and Cast keyboard input are outside this keyboard preview. The separate [hold-to-talk voice feature](VOICE_AND_NOW_PLAYING.md) is included in v0.12.0.

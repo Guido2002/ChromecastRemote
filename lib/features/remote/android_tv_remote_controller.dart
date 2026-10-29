@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import '../../core/protocol/android_tv/android_key_codes.dart';
 import '../../core/protocol/android_tv/android_tv_remote_client.dart';
@@ -10,6 +11,7 @@ import 'tv_keyboard_target.dart';
 import 'models/tv_reported_state.dart';
 import '../diagnostics/local_diagnostics.dart';
 import '../../core/protocol/android_tv/text_input.dart';
+import 'voice/voice_search.dart';
 
 /// Maps a [RemoteCommand] to its Android key code.
 int keyCodeForCommand(RemoteCommand command) => switch (command) {
@@ -38,7 +40,8 @@ int keyCodeForCommand(RemoteCommand command) => switch (command) {
 ///
 /// Pairing itself is handled by `AndroidTvPairingClient` (see the pairing
 /// feature); this controller reconnects using the persisted certificate pin.
-class AndroidTvRemoteController implements AppLaunchTarget, TvKeyboardTarget {
+class AndroidTvRemoteController
+    implements AppLaunchTarget, TvKeyboardTarget, TvVoiceTarget {
   AndroidTvRemoteController({
     required this.pairedDevice,
     required CertificateManager certificates,
@@ -62,6 +65,24 @@ class AndroidTvRemoteController implements AppLaunchTarget, TvKeyboardTarget {
   void cancelHeldCommands() => _client.cancelLongPress();
 
   AndroidTvRemoteClient get client => _client;
+
+  @override
+  bool get voiceSupported =>
+      _state == RemoteConnectionState.connected && _client.voiceSupported;
+  @override
+  Future<Object> beginVoice() => _client.startVoice();
+  @override
+  bool sendVoice(Object session, Uint8List samples) =>
+      voiceSupported &&
+      session is AndroidTvVoiceSession &&
+      _client.sendVoiceChunk(session, samples);
+  @override
+  void finishVoice(Object session) {
+    if (session is AndroidTvVoiceSession) _client.endVoice(session);
+  }
+
+  @override
+  void cancelVoice() => _client.cancelVoice();
 
   void updatePairedDevice(PairedAndroidTv device) {
     if (device.serviceName == pairedDevice.serviceName) pairedDevice = device;

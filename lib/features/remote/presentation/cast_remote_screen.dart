@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import '../../../shared/presentation/remote_haptics.dart';
 import 'package:flutter_chrome_cast/flutter_chrome_cast.dart';
 
 import '../../../media_url.dart';
@@ -19,6 +19,7 @@ class CastRemoteScreen extends StatefulWidget {
     required this.device,
     this.embedded = false,
     this.active = true,
+    this.nowPlaying = false,
     this.onStopped,
     super.key,
   });
@@ -26,6 +27,7 @@ class CastRemoteScreen extends StatefulWidget {
   final GoogleCastDevice device;
   final bool embedded;
   final bool active;
+  final bool nowPlaying;
   final VoidCallback? onStopped;
 
   @override
@@ -99,12 +101,18 @@ class _CastRemoteScreenState extends State<CastRemoteScreen> {
 
         return Scaffold(
           appBar: AppBar(
+            toolbarHeight:
+                MediaQuery.textScalerOf(context).scale(24) +
+                MediaQuery.textScalerOf(context).scale(12) +
+                20,
             automaticallyImplyLeading: !widget.embedded,
             title: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  widget.device.friendlyName,
+                  widget.nowPlaying
+                      ? 'Now playing'
+                      : widget.device.friendlyName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -154,6 +162,7 @@ class _CastRemoteScreenState extends State<CastRemoteScreen> {
                               children: [
                                 _MediaControlsCard(
                                   connected: connected,
+                                  prominent: widget.nowPlaying,
                                   active: widget.active,
                                   deviceId: widget.device.deviceID,
                                   onMessage: _showMessage,
@@ -179,6 +188,7 @@ class _CastRemoteScreenState extends State<CastRemoteScreen> {
                         children: [
                           _MediaControlsCard(
                             connected: connected,
+                            prominent: widget.nowPlaying,
                             active: widget.active,
                             deviceId: widget.device.deviceID,
                             onMessage: _showMessage,
@@ -250,11 +260,15 @@ class _CastStatus extends StatelessWidget {
             decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           ),
           const SizedBox(width: 7),
-          Text(
-            label,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: color,
-              fontWeight: FontWeight.w600,
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],
@@ -267,11 +281,13 @@ class _MediaControlsCard extends StatefulWidget {
   const _MediaControlsCard({
     required this.connected,
     required this.onMessage,
+    this.prominent = false,
     required this.deviceId,
     required this.active,
   });
 
   final bool connected;
+  final bool prominent;
   final String deviceId;
   final bool active;
   final void Function(String message, {bool isWarning}) onMessage;
@@ -375,6 +391,7 @@ class _MediaControlsCardState extends State<_MediaControlsCard>
                 expectedSession)) {
       return;
     }
+    unawaited(RemoteHaptics.instance.press());
     setState(() => _busy = true);
     try {
       await command();
@@ -447,20 +464,31 @@ class _MediaControlsCardState extends State<_MediaControlsCard>
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (widget.prominent) ...[
+                  Center(child: _MediaArtwork(info: info, size: 200)),
+                  const SizedBox(height: 20),
+                ],
                 Row(
                   children: [
-                    _MediaArtwork(info: info),
-                    const SizedBox(width: 13),
+                    if (!widget.prominent) _MediaArtwork(info: info),
+                    if (!widget.prominent) const SizedBox(width: 13),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             mediaLoaded ? title : 'Nothing playing',
-                            maxLines: 1,
+                            maxLines: widget.prominent ? 3 : 1,
                             overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.titleSmall
-                                ?.copyWith(fontWeight: FontWeight.w700),
+                            style:
+                                (widget.prominent
+                                        ? Theme.of(
+                                            context,
+                                          ).textTheme.headlineSmall
+                                        : Theme.of(
+                                            context,
+                                          ).textTheme.titleSmall)
+                                    ?.copyWith(fontWeight: FontWeight.w700),
                           ),
                           const SizedBox(height: 4),
                           Text(
@@ -558,8 +586,11 @@ class _MediaControlsCardState extends State<_MediaControlsCard>
                   },
                 ),
                 const SizedBox(height: 10),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 12,
+                  runSpacing: 8,
                   children: [
                     _RoundControlButton(
                       tooltip: 'Back 10 seconds',
@@ -568,7 +599,6 @@ class _MediaControlsCardState extends State<_MediaControlsCard>
                           ? () => _skip(const Duration(seconds: -10), mediaId)
                           : null,
                     ),
-                    const SizedBox(width: 18),
                     SizedBox(
                       width: 66,
                       height: 66,
@@ -580,6 +610,7 @@ class _MediaControlsCardState extends State<_MediaControlsCard>
                               )
                             : null,
                         style: FilledButton.styleFrom(
+                          enableFeedback: false,
                           shape: const CircleBorder(),
                           padding: EdgeInsets.zero,
                           backgroundColor: AppColors.actionFill,
@@ -588,12 +619,12 @@ class _MediaControlsCardState extends State<_MediaControlsCard>
                           playing
                               ? Icons.pause_rounded
                               : Icons.play_arrow_rounded,
+                          semanticLabel: playing ? 'Pause' : 'Play',
                           size: 34,
                           color: colors.onPrimary,
                         ),
                       ),
                     ),
-                    const SizedBox(width: 18),
                     _RoundControlButton(
                       tooltip: 'Forward 30 seconds',
                       icon: Icons.forward_30,
@@ -601,9 +632,9 @@ class _MediaControlsCardState extends State<_MediaControlsCard>
                           ? () => _skip(const Duration(seconds: 30), mediaId)
                           : null,
                     ),
-                    const SizedBox(width: 8),
                     IconButton(
                       tooltip: 'Stop playback',
+                      enableFeedback: false,
                       onPressed: canControl
                           ? () =>
                                 _perform(client.stop, expectedSession: mediaId)
@@ -640,7 +671,9 @@ class _MediaControlsCardState extends State<_MediaControlsCard>
 }
 
 class _MediaArtwork extends StatelessWidget {
-  const _MediaArtwork({required this.info});
+  const _MediaArtwork({required this.info, this.size = 52});
+
+  final double size;
 
   final GoogleCastMediaInformation? info;
 
@@ -684,8 +717,8 @@ class _MediaArtwork extends StatelessWidget {
     }
 
     return Container(
-      width: 52,
-      height: 52,
+      width: size,
+      height: size,
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(14),
@@ -713,6 +746,7 @@ class _RoundControlButton extends StatelessWidget {
     return IconButton.filledTonal(
       tooltip: tooltip,
       onPressed: onPressed,
+      enableFeedback: false,
       icon: Icon(icon),
       style: IconButton.styleFrom(
         fixedSize: const Size(50, 50),
@@ -758,6 +792,7 @@ class _VolumeCardState extends State<_VolumeCard> {
 
   void _setVolume(double next) {
     if (!widget.connected) return;
+    unawaited(RemoteHaptics.instance.press(selection: true));
     final value = next.clamp(0.0, 1.0);
     setState(() {
       _volume = null;
@@ -773,7 +808,6 @@ class _VolumeCardState extends State<_VolumeCard> {
 
   void _toggleMute() {
     if (!widget.connected) return;
-    HapticFeedback.lightImpact();
     final current = _volume ?? widget.session?.currentDeviceVolume ?? 0;
     _setVolume(current > 0 ? 0 : _lastAudibleVolume);
   }
@@ -791,6 +825,7 @@ class _VolumeCardState extends State<_VolumeCard> {
           children: [
             IconButton(
               tooltip: value == 0 ? 'Unmute receiver' : 'Mute receiver',
+              enableFeedback: false,
               onPressed: widget.connected ? _toggleMute : null,
               icon: Icon(value == 0 ? Icons.volume_off : Icons.volume_mute),
             ),
@@ -807,7 +842,7 @@ class _VolumeCardState extends State<_VolumeCard> {
               ),
             ),
             SizedBox(
-              width: 38,
+              width: MediaQuery.textScalerOf(context).scale(38),
               child: Text(
                 '${(value * 100).round()}%',
                 textAlign: TextAlign.end,

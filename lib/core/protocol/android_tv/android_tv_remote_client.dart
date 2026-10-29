@@ -50,6 +50,13 @@ class RemoteConnectionException implements Exception {
   String toString() => message;
 }
 
+/// Opaque routing token. Even a repeated numeric TV session ID cannot reuse
+/// a token from an earlier request or connection.
+class AndroidTvVoiceSession {
+  AndroidTvVoiceSession._(this.id);
+  final int id;
+}
+
 /// Android TV Remote Protocol v2 client for the remote port (6466).
 ///
 /// Mirrors https://github.com/tronikos/androidtvremote2 remote.py:
@@ -81,6 +88,94 @@ class AndroidTvRemoteClient {
 
   int _activeFeatures = AndroidTvFeatures.requested;
   final textInput = AndroidTvTextInput();
+  Completer<AndroidTvVoiceSession>? _voiceReady;
+  AndroidTvVoiceSession? _voiceSession;
+
+  bool get voiceSupported =>
+      isConnected &&
+      _activeFeatures & AndroidTvFeatures.voice != 0 &&
+      _activeFeatures & AndroidTvFeatures.key != 0;
+
+  Future<AndroidTvVoiceSession> startVoice({
+    Duration timeout = const Duration(seconds: 3),
+  }) async {
+    if (!voiceSupported) throw StateError('Voice input is unavailable.');
+    if (_voiceReady != null || _voiceSession != null) {
+      throw StateError('A voice request is already active.');
+    }
+    final ready = Completer<AndroidTvVoiceSession>();
+    _voiceReady = ready;
+    try {
+      sendKey(AndroidKeyCodes.search);
+      final session = await ready.future.timeout(timeout);
+      if (!identical(_voiceReady, ready) || !voiceSupported) {
+        throw StateError('Voice request cancelled.');
+      }
+      _send(
+        RemoteMessage()
+          ..remoteVoiceBegin = RemoteVoiceBegin(sessionId: session.id),
+      );
+      return session;
+    } catch (_) {
+      if (identical(_voiceReady, ready)) cancelVoice();
+      rethrow;
+    } finally {
+      if (identical(_voiceReady, ready)) _voiceReady = null;
+    }
+  }
+
+  /// PCM is accumulated by the recorder before this call. Only the final
+  /// short frame is padded; padding every microphone callback distorts audio.
+  bool sendVoiceChunk(AndroidTvVoiceSession session, List<int> samples) {
+    if (!voiceSupported ||
+        !identical(_voiceSession, session) ||
+        samples.isEmpty ||
+        samples.length > 20 * 1024 ||
+        samples.length.isOdd) {
+      return false;
+    }
+    final payload = samples.length < 8 * 1024
+        ? (Uint8List(8 * 1024)..setRange(0, samples.length, samples))
+        : samples;
+    try {
+      _send(
+        RemoteMessage()
+          ..remoteVoicePayload = RemoteVoicePayload(
+            sessionId: session.id,
+            samples: payload,
+          ),
+      );
+      return true;
+    } catch (_) {
+      _dropConnection('Could not send voice audio to the TV.');
+      return false;
+    }
+  }
+
+  void endVoice(AndroidTvVoiceSession session) {
+    if (!identical(_voiceSession, session)) return;
+    cancelVoice();
+  }
+
+  void cancelVoice() {
+    final session = _voiceSession;
+    _voiceSession = null;
+    final pending = _voiceReady;
+    _voiceReady = null;
+    if (pending != null && !pending.isCompleted) {
+      pending.completeError(StateError('Voice request cancelled.'));
+    }
+    if (session != null && isConnected) {
+      try {
+        _send(
+          RemoteMessage()
+            ..remoteVoiceEnd = RemoteVoiceEnd(sessionId: session.id),
+        );
+      } catch (_) {
+        /* Connection teardown also ends the remote request. */
+      }
+    }
+  }
 
   final _volumeController = StreamController<AndroidTvVolumeInfo>.broadcast();
   final _currentAppController = StreamController<String>.broadcast();
@@ -260,6 +355,7 @@ class AndroidTvRemoteClient {
   }
 
   Future<void> close() async {
+    cancelVoice();
     _connectionEpoch++;
     cancelLongPress();
     currentApp = null;
@@ -371,6 +467,17 @@ class AndroidTvRemoteClient {
         final batch = message.remoteImeBatchEdit;
         textInput.updateCounters(batch.imeCounter, batch.fieldCounter);
       }
+    } else if (message.hasRemoteVoiceBegin()) {
+      final pending = _voiceReady;
+      if (voiceSupported && pending != null && !pending.isCompleted) {
+        final session = AndroidTvVoiceSession._(
+          message.remoteVoiceBegin.sessionId,
+        );
+        _voiceSession = session;
+        pending.complete(session);
+      }
+    } else if (message.hasRemoteVoiceEnd()) {
+      if (_voiceSession?.id == message.remoteVoiceEnd.sessionId) cancelVoice();
     } else if (message.hasRemoteError()) {
       // The TV rejected a command; surface via log only, never crash.
       assert(() {

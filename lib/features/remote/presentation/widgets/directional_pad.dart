@@ -1,6 +1,7 @@
 import 'dart:math' as math;
+import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import '../../../../shared/presentation/remote_haptics.dart';
 import 'package:flutter/semantics.dart';
 
 /// Full quadrants handle touch; separate nonoverlapping semantic bounds make
@@ -22,7 +23,7 @@ class DirectionalPad extends StatelessWidget {
       onDirectionLongPressEnd;
   final double maxDiameter;
   void _tap(String direction) {
-    HapticFeedback.lightImpact();
+    unawaited(RemoteHaptics.instance.press());
     onDirection(direction);
   }
 
@@ -64,7 +65,10 @@ class DirectionalPad extends StatelessWidget {
                         child: GestureDetector(
                           onLongPressStart:
                               enabled && onDirectionLongPressStart != null
-                              ? (_) => onDirectionLongPressStart!(direction)
+                              ? (_) {
+                                  unawaited(RemoteHaptics.instance.press());
+                                  onDirectionLongPressStart!(direction);
+                                }
                               : null,
                           onLongPressEnd:
                               enabled && onDirectionLongPressEnd != null
@@ -77,6 +81,7 @@ class DirectionalPad extends StatelessWidget {
                           child: Material(
                             color: colors.surfaceContainerHigh,
                             child: InkWell(
+                              enableFeedback: false,
                               onTap: enabled ? () => _tap(direction) : null,
                               child: Align(
                                 alignment: alignment,
@@ -102,7 +107,12 @@ class DirectionalPad extends StatelessWidget {
                     excludeSemantics: true,
                     label: 'OK, select',
                     sortKey: const OrdinalSortKey(2),
-                    onTap: enabled ? onSelect : null,
+                    onTap: enabled
+                        ? () {
+                            unawaited(RemoteHaptics.instance.press());
+                            onSelect();
+                          }
+                        : null,
                     child: Material(
                       color: colors.surfaceContainerLow,
                       shape: CircleBorder(
@@ -110,10 +120,11 @@ class DirectionalPad extends StatelessWidget {
                       ),
                       clipBehavior: Clip.antiAlias,
                       child: InkWell(
+                        enableFeedback: false,
                         customBorder: const CircleBorder(),
                         onTap: enabled
                             ? () {
-                                HapticFeedback.lightImpact();
+                                unawaited(RemoteHaptics.instance.press());
                                 onSelect();
                               }
                             : null,

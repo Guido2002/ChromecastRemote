@@ -17,6 +17,8 @@ import '../../pairing/paired_device_store.dart';
 import '../../pairing/presentation/pairing_screen.dart';
 import '../../remote/presentation/android_tv_remote_screen.dart';
 import '../../remote/presentation/cast_remote_screen.dart';
+import '../../remote/presentation/smart_remote_view.dart';
+import '../../remote/smart_now_playing.dart';
 import '../../remote/remote_controller.dart';
 import '../../settings/presentation/settings_screen.dart';
 import '../../update/presentation/update_actions.dart';
@@ -55,6 +57,8 @@ class _DevicesScreenState extends State<DevicesScreen>
   String? _error;
   int _sectionIndex = 2;
   GoogleCastDevice? _castDevice;
+  CastPlaybackMonitor? _castPlayback;
+  final _noCast = ValueNotifier(const CastPlaybackSnapshot());
   List<SavedCastReceiver> _savedCast = [];
   String? _restoringCastId;
   TvApp? _pendingApp;
@@ -68,6 +72,7 @@ class _DevicesScreenState extends State<DevicesScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _services.tvPreferences.addListener(_preferencesChanged);
+    _observeCast();
     unawaited(_restoreRoom());
     _navigation.setMethodCallHandler((call) async {
       if (call.method == 'openRemote') {
@@ -105,6 +110,16 @@ class _DevicesScreenState extends State<DevicesScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) unawaited(checkForAppUpdate(context, userInitiated: false));
     });
+  }
+
+  void _observeCast() {
+    if (!widget.castAvailable || _castPlayback != null) return;
+    _castPlayback = CastPlaybackMonitor(
+      sessions: GoogleCastSessionManager.instance.currentSessionStream,
+      mediaUpdates: GoogleCastRemoteMediaClient.instance.mediaStatusStream,
+      currentSession: () => GoogleCastSessionManager.instance.currentSession,
+      currentMedia: () => GoogleCastRemoteMediaClient.instance.mediaStatus,
+    )..setActive(_foreground);
   }
 
   void _preferencesChanged() {
@@ -213,6 +228,7 @@ class _DevicesScreenState extends State<DevicesScreen>
   void didUpdateWidget(DevicesScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.castAvailable && !oldWidget.castAvailable) {
+      _observeCast();
       unawaited(_startScan());
     }
   }
@@ -222,10 +238,12 @@ class _DevicesScreenState extends State<DevicesScreen>
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.hidden) {
       _foreground = false;
+      _castPlayback?.setActive(false);
       _services.androidTvConnection.controller?.cancelHeldCommands();
       unawaited(_services.discovery.stop());
     } else if (state == AppLifecycleState.resumed && !_foreground) {
       _foreground = true;
+      _castPlayback?.setActive(true);
       unawaited(_startScan());
       final controller = _services.androidTvConnection.controller;
       if (_castDevice == null &&
@@ -244,6 +262,8 @@ class _DevicesScreenState extends State<DevicesScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _services.tvPreferences.removeListener(_preferencesChanged);
+    _castPlayback?.dispose();
+    _noCast.dispose();
     _navigation.setMethodCallHandler(null);
     _subscription?.cancel();
     _connectionSubscription?.cancel();
@@ -589,59 +609,67 @@ class _DevicesScreenState extends State<DevicesScreen>
           child: IndexedStack(
             index: _sectionIndex,
             children: [
-              if (_castDevice != null)
-                CastRemoteScreen(
-                  device: _castDevice!,
-                  active: _sectionIndex == 0,
-                  embedded: true,
-                  onStopped: () => setState(() {
-                    _castDevice = null;
-                    _restoringCastId = null;
-                    _sectionIndex = 2;
-                  }),
-                )
-              else if (active != null)
-                AndroidTvRemoteScreen(
-                  key: ObjectKey(active),
-                  controller: active,
-                  embedded: true,
-                  active: _sectionIndex == 0 && _openingDeviceId == null,
-                  onChooseDevice: _chooseDevice,
-                  onManageApps: () => setState(() => _sectionIndex = 1),
-                  onRoutines: _openRoutines,
-                  onRetry: () => _openSavedDevice(active.pairedDevice),
-                  onForget: () => _forgetSavedDevice(active.pairedDevice),
-                )
-              else
-                Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.settings_remote_outlined, size: 48),
-                        const SizedBox(height: 16),
-                        Text(
-                          _restoringCastId == null
-                              ? 'Choose your TV'
-                              : 'Looking for your Cast receiver',
-                          style: Theme.of(context).textTheme.headlineSmall,
+              SmartRemoteView(
+                playback: _castPlayback ?? _noCast,
+                active: _sectionIndex == 0 && _openingDeviceId == null,
+                remoteBuilder: (context, controlsActive) => _castDevice != null
+                    ? CastRemoteScreen(
+                        device: _castDevice!,
+                        active: controlsActive,
+                        embedded: true,
+                        onStopped: () => setState(() {
+                          _castDevice = null;
+                          _restoringCastId = null;
+                          _sectionIndex = 2;
+                        }),
+                      )
+                    : active != null
+                    ? AndroidTvRemoteScreen(
+                        key: ObjectKey(active),
+                        controller: active,
+                        embedded: true,
+                        active: controlsActive,
+                        onChooseDevice: _chooseDevice,
+                        onManageApps: () => setState(() => _sectionIndex = 1),
+                        onRoutines: _openRoutines,
+                        onRetry: () => _openSavedDevice(active.pairedDevice),
+                        onForget: () => _forgetSavedDevice(active.pairedDevice),
+                      )
+                    : Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.settings_remote_outlined,
+                                size: 48,
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                _restoringCastId == null
+                                    ? 'Choose your TV'
+                                    : 'Looking for your Cast receiver',
+                                style: Theme.of(
+                                  context,
+                                ).textTheme.headlineSmall,
+                              ),
+                              const SizedBox(height: 8),
+                              const Text(
+                                'Choose a TV remote for navigation or a Cast receiver for media playback.',
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 24),
+                              FilledButton.icon(
+                                onPressed: _chooseDevice,
+                                icon: const Icon(Icons.tv),
+                                label: const Text('Find a TV'),
+                              ),
+                            ],
+                          ),
                         ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Choose a TV remote for navigation or a Cast receiver for media playback.',
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 24),
-                        FilledButton.icon(
-                          onPressed: _chooseDevice,
-                          icon: const Icon(Icons.tv),
-                          label: const Text('Find a TV'),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+                      ),
+              ),
               AppLibraryView(
                 store: scope,
                 onRoutines: _openRoutines,

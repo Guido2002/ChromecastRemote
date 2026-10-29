@@ -39,6 +39,6 @@ abstract final class AndroidTvFeatures {
   static const int appLink = 512;
 
   /// Features this app requests: keys, power, volume, current-app tracking
-  /// (via IME messages) and app links. Voice is not implemented.
-  static const int requested = ping | key | ime | power | volume | appLink;
+  /// (via IME messages), voice audio and app links.
+  static const int requested = ping | key | ime | voice | power | volume | appLink;
 }

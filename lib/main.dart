@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'dart:async';
+import 'shared/presentation/remote_haptics.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_chrome_cast/flutter_chrome_cast.dart';
@@ -17,6 +19,7 @@ void main() {
       success: true,
     ),
   );
+  unawaited(RemoteHaptics.instance.load());
   runApp(const ChromecastRemoteApp());
 }
 

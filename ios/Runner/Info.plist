@@ -66,6 +66,8 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Hold the microphone to send a voice search to your selected TV. Audio is not saved.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Chromecast Remote discovers and controls TVs on your local network.</string>
 	<key>NSBonjourServices</key>

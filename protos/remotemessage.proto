@@ -79,6 +79,22 @@ message RemoteImeBatchEdit {
   repeated RemoteEditInfo edit_info = 3;
 }
 
+// PCM16 little-endian, 8 kHz mono; routing comes from the TV's response
+// to KEYCODE_SEARCH. See androidtvremote2's voice implementation.
+message RemoteVoiceBegin {
+  int32 session_id = 1;
+  string package_name = 2;
+}
+
+message RemoteVoicePayload {
+  int32 session_id = 1;
+  bytes samples = 2;
+}
+
+message RemoteVoiceEnd {
+  int32 session_id = 1;
+}
+
 enum RemoteDirection {
   UNKNOWN_DIRECTION = 0;
   START_LONG = 1;
@@ -133,6 +149,9 @@ message RemoteMessage {
   RemoteImeKeyInject remote_ime_key_inject = 20;
   RemoteImeBatchEdit remote_ime_batch_edit = 21;
   RemoteImeShowRequest remote_ime_show_request = 22;
+  RemoteVoiceBegin remote_voice_begin = 30;
+  RemoteVoicePayload remote_voice_payload = 31;
+  RemoteVoiceEnd remote_voice_end = 32;
   RemoteStart remote_start = 40;
   RemoteSetVolumeLevel remote_set_volume_level = 50;
   RemoteAppLinkLaunchRequest remote_app_link_launch_request = 90;

@@ -230,6 +230,46 @@ final $typed_data.Uint8List remoteImeBatchEditDescriptor = $convert.base64Decode
     'oNZmllbGRfY291bnRlchgCIAEoBVIMZmllbGRDb3VudGVyEjMKCWVkaXRfaW5mbxgDIAMoCzIW'
     'LnJlbW90ZS5SZW1vdGVFZGl0SW5mb1IIZWRpdEluZm8=');
 
+@$core.Deprecated('Use remoteVoiceBeginDescriptor instead')
+const RemoteVoiceBegin$json = {
+  '1': 'RemoteVoiceBegin',
+  '2': [
+    {'1': 'session_id', '3': 1, '4': 1, '5': 5, '10': 'sessionId'},
+    {'1': 'package_name', '3': 2, '4': 1, '5': 9, '10': 'packageName'},
+  ],
+};
+
+/// Descriptor for `RemoteVoiceBegin`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List remoteVoiceBeginDescriptor = $convert.base64Decode(
+    'ChBSZW1vdGVWb2ljZUJlZ2luEh0KCnNlc3Npb25faWQYASABKAVSCXNlc3Npb25JZBIhCgxwYW'
+    'NrYWdlX25hbWUYAiABKAlSC3BhY2thZ2VOYW1l');
+
+@$core.Deprecated('Use remoteVoicePayloadDescriptor instead')
+const RemoteVoicePayload$json = {
+  '1': 'RemoteVoicePayload',
+  '2': [
+    {'1': 'session_id', '3': 1, '4': 1, '5': 5, '10': 'sessionId'},
+    {'1': 'samples', '3': 2, '4': 1, '5': 12, '10': 'samples'},
+  ],
+};
+
+/// Descriptor for `RemoteVoicePayload`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List remoteVoicePayloadDescriptor = $convert.base64Decode(
+    'ChJSZW1vdGVWb2ljZVBheWxvYWQSHQoKc2Vzc2lvbl9pZBgBIAEoBVIJc2Vzc2lvbklkEhgKB3'
+    'NhbXBsZXMYAiABKAxSB3NhbXBsZXM=');
+
+@$core.Deprecated('Use remoteVoiceEndDescriptor instead')
+const RemoteVoiceEnd$json = {
+  '1': 'RemoteVoiceEnd',
+  '2': [
+    {'1': 'session_id', '3': 1, '4': 1, '5': 5, '10': 'sessionId'},
+  ],
+};
+
+/// Descriptor for `RemoteVoiceEnd`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List remoteVoiceEndDescriptor = $convert.base64Decode(
+    'Cg5SZW1vdGVWb2ljZUVuZBIdCgpzZXNzaW9uX2lkGAEgASgFUglzZXNzaW9uSWQ=');
+
 @$core.Deprecated('Use remoteKeyInjectDescriptor instead')
 const RemoteKeyInject$json = {
   '1': 'RemoteKeyInject',
@@ -428,6 +468,30 @@ const RemoteMessage$json = {
       '10': 'remoteImeShowRequest'
     },
     {
+      '1': 'remote_voice_begin',
+      '3': 30,
+      '4': 1,
+      '5': 11,
+      '6': '.remote.RemoteVoiceBegin',
+      '10': 'remoteVoiceBegin'
+    },
+    {
+      '1': 'remote_voice_payload',
+      '3': 31,
+      '4': 1,
+      '5': 11,
+      '6': '.remote.RemoteVoicePayload',
+      '10': 'remoteVoicePayload'
+    },
+    {
+      '1': 'remote_voice_end',
+      '3': 32,
+      '4': 1,
+      '5': 11,
+      '6': '.remote.RemoteVoiceEnd',
+      '10': 'remoteVoiceEnd'
+    },
+    {
       '1': 'remote_start',
       '3': 40,
       '4': 1,
@@ -468,8 +532,12 @@ final $typed_data.Uint8List remoteMessageDescriptor = $convert.base64Decode(
     'VLZXlJbmplY3QSTQoVcmVtb3RlX2ltZV9iYXRjaF9lZGl0GBUgASgLMhoucmVtb3RlLlJlbW90'
     'ZUltZUJhdGNoRWRpdFIScmVtb3RlSW1lQmF0Y2hFZGl0ElMKF3JlbW90ZV9pbWVfc2hvd19yZX'
     'F1ZXN0GBYgASgLMhwucmVtb3RlLlJlbW90ZUltZVNob3dSZXF1ZXN0UhRyZW1vdGVJbWVTaG93'
-    'UmVxdWVzdBI2CgxyZW1vdGVfc3RhcnQYKCABKAsyEy5yZW1vdGUuUmVtb3RlU3RhcnRSC3JlbW'
-    '90ZVN0YXJ0ElMKF3JlbW90ZV9zZXRfdm9sdW1lX2xldmVsGDIgASgLMhwucmVtb3RlLlJlbW90'
-    'ZVNldFZvbHVtZUxldmVsUhRyZW1vdGVTZXRWb2x1bWVMZXZlbBJmCh5yZW1vdGVfYXBwX2xpbm'
-    'tfbGF1bmNoX3JlcXVlc3QYWiABKAsyIi5yZW1vdGUuUmVtb3RlQXBwTGlua0xhdW5jaFJlcXVl'
-    'c3RSGnJlbW90ZUFwcExpbmtMYXVuY2hSZXF1ZXN0');
+    'UmVxdWVzdBJGChJyZW1vdGVfdm9pY2VfYmVnaW4YHiABKAsyGC5yZW1vdGUuUmVtb3RlVm9pY2'
+    'VCZWdpblIQcmVtb3RlVm9pY2VCZWdpbhJMChRyZW1vdGVfdm9pY2VfcGF5bG9hZBgfIAEoCzIa'
+    'LnJlbW90ZS5SZW1vdGVWb2ljZVBheWxvYWRSEnJlbW90ZVZvaWNlUGF5bG9hZBJAChByZW1vdG'
+    'Vfdm9pY2VfZW5kGCAgASgLMhYucmVtb3RlLlJlbW90ZVZvaWNlRW5kUg5yZW1vdGVWb2ljZUVu'
+    'ZBI2CgxyZW1vdGVfc3RhcnQYKCABKAsyEy5yZW1vdGUuUmVtb3RlU3RhcnRSC3JlbW90ZVN0YX'
+    'J0ElMKF3JlbW90ZV9zZXRfdm9sdW1lX2xldmVsGDIgASgLMhwucmVtb3RlLlJlbW90ZVNldFZv'
+    'bHVtZUxldmVsUhRyZW1vdGVTZXRWb2x1bWVMZXZlbBJmCh5yZW1vdGVfYXBwX2xpbmtfbGF1bm'
+    'NoX3JlcXVlc3QYWiABKAsyIi5yZW1vdGUuUmVtb3RlQXBwTGlua0xhdW5jaFJlcXVlc3RSGnJl'
+    'bW90ZUFwcExpbmtMYXVuY2hSZXF1ZXN0');

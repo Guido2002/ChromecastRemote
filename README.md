@@ -45,13 +45,17 @@ in one list, labelled by the protocol they support.
 - **Android quick access** — Add TV remote to Quick Settings from Settings, or
   long-press the launcher icon and choose its remote shortcut.
 
-New in [v0.11.0](https://github.com/Guido2002/ChromecastRemote/releases/tag/v0.11.0):
+Included since [v0.11.0](https://github.com/Guido2002/ChromecastRemote/releases/tag/v0.11.0):
 
 - [Phone keyboard preview](docs/KEYBOARD_PREVIEW.md) with explicit Send and private drafts.
 - Per-TV eyes-up mode, household control setup, manual room suggestions, and reported power/volume freshness.
 - YouTube and Spotify destination templates; optional Home Assistant TV/audio routines.
 - Cast pause/seek capability checks and live seek windows.
 - Accessible directional targets and local measurements with explicit copy/clear.
+
+New in [v0.12.0](https://github.com/Guido2002/ChromecastRemote/releases/tag/v0.12.0):
+[hold-to-talk voice search, Smart Now Playing and configurable haptics](docs/VOICE_AND_NOW_PLAYING.md).
+Voice requires a compatible TV and remains subject to physical-device validation.
 
 Some controls depend on the connected device and the application currently running on the TV.
 
@@ -153,7 +157,8 @@ the release page opens in the browser instead.
   section uses a combined Play/Pause toggle and shows no playback metadata.
   A transmitted key event is not guaranteed to be handled by the foreground
   app (e.g. Netflix ignores Next/Previous).
-- Search on TV sends KEYCODE_SEARCH. Voice audio streaming is not implemented.
+- Search on TV sends KEYCODE_SEARCH. The microphone action sends voice audio
+  only after a compatible TV reports a voice session. Its voice service may process audio online.
   The keyboard preview sends explicit text requests; it does not
   mirror TV text or synchronize cursors, and it requires compatible input-session
   reporting. It is included as preview functionality in v0.11.0.
