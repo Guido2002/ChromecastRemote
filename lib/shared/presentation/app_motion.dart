@@ -52,15 +52,20 @@ class _MotionEntranceState extends State<MotionEntrance>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _started = true;
+      _controller.value = 1;
+      return;
+    }
     if (_started) return;
     _started = true;
-    if (MediaQuery.disableAnimationsOf(context)) {
-      _controller.value = 1;
-    } else if (widget.delay == Duration.zero) {
+    if (widget.delay == Duration.zero) {
       unawaited(_controller.forward());
     } else {
       Future<void>.delayed(widget.delay, () {
-        if (mounted) unawaited(_controller.forward());
+        if (mounted && !MediaQuery.disableAnimationsOf(context)) {
+          unawaited(_controller.forward());
+        }
       });
     }
   }

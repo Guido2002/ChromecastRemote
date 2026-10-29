@@ -5,6 +5,7 @@ import 'package:flutter_chrome_cast/flutter_chrome_cast.dart';
 import '../../../media_url.dart';
 import '../../../shared/presentation/adaptive_layout.dart';
 import '../../../shared/presentation/app_motion.dart';
+import '../../../shared/presentation/app_theme.dart';
 
 /// Remote screen for classic Chromecast devices.
 ///
@@ -12,9 +13,16 @@ import '../../../shared/presentation/app_motion.dart';
 /// system-wide navigation. This screen therefore shows media transport,
 /// receiver volume and media casting, and nothing that cannot work.
 class CastRemoteScreen extends StatefulWidget {
-  const CastRemoteScreen({required this.device, super.key});
+  const CastRemoteScreen({
+    required this.device,
+    this.embedded = false,
+    this.onStopped,
+    super.key,
+  });
 
   final GoogleCastDevice device;
+  final bool embedded;
+  final VoidCallback? onStopped;
 
   @override
   State<CastRemoteScreen> createState() => _CastRemoteScreenState();
@@ -27,9 +35,17 @@ class _CastRemoteScreenState extends State<CastRemoteScreen> {
     setState(() => _isDisconnecting = true);
     try {
       await GoogleCastSessionManager.instance.endSessionAndStopCasting();
-      if (mounted) Navigator.of(context).pop();
+      if (mounted) {
+        if (widget.embedded) {
+          widget.onStopped?.call();
+        } else {
+          Navigator.of(context).pop();
+        }
+      }
     } catch (error) {
-      _showMessage('Could not disconnect: $error');
+      _showMessage(
+        'Could not stop casting. Check the receiver connection and try again.',
+      );
     } finally {
       if (mounted) setState(() => _isDisconnecting = false);
     }
@@ -65,19 +81,26 @@ class _CastRemoteScreenState extends State<CastRemoteScreen> {
       initialData: GoogleCastSessionManager.instance.currentSession,
       builder: (context, snapshot) {
         final session = snapshot.data;
+        final sameReceiver =
+            session?.device?.deviceID == widget.device.deviceID;
         final connected =
+            sameReceiver &&
             session?.connectionState == GoogleCastConnectState.connected;
         final connecting =
+            sameReceiver &&
             session?.connectionState == GoogleCastConnectState.connecting;
-        final tablet = AdaptiveLayout.isTablet(context);
+        final tablet =
+            AdaptiveLayout.isTablet(context) &&
+            MediaQuery.sizeOf(context).height >= 600;
 
         return Scaffold(
           appBar: AppBar(
+            automaticallyImplyLeading: !widget.embedded,
             title: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  session?.device?.friendlyName ?? widget.device.friendlyName,
+                  widget.device.friendlyName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -86,10 +109,28 @@ class _CastRemoteScreenState extends State<CastRemoteScreen> {
               ],
             ),
             actions: [
+              if (!connected && !connecting)
+                IconButton(
+                  tooltip: 'Reconnect Cast receiver',
+                  icon: const Icon(Icons.refresh),
+                  onPressed: () async {
+                    try {
+                      final started = await GoogleCastSessionManager.instance
+                          .startSessionWithDevice(widget.device);
+                      if (!started) {
+                        _showMessage('Could not reconnect to this receiver.');
+                      }
+                    } catch (_) {
+                      _showMessage(
+                        'Could not reconnect. Check receiver power and Wi-Fi.',
+                      );
+                    }
+                  },
+                ),
               IconButton(
-                tooltip: 'Disconnect',
+                tooltip: 'Stop casting',
                 onPressed: connected && !_isDisconnecting ? _disconnect : null,
-                icon: const Icon(Icons.link_off),
+                icon: const Icon(Icons.stop_screen_share_outlined),
               ),
             ],
           ),
@@ -152,26 +193,16 @@ class _CastRemoteScreenState extends State<CastRemoteScreen> {
     );
   }
 
-  Widget _buildPlaySection(bool connected) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildPlaySection(bool connected) => ExpansionTile(
+    title: const Text('Cast a media link'),
+    subtitle: const Text('Advanced · direct audio or video files'),
     children: [
-      Text(
-        'PLAY SOMETHING',
-        style: Theme.of(context).textTheme.labelMedium?.copyWith(
-          color: Theme.of(context).colorScheme.onSurfaceVariant,
-          letterSpacing: 1.4,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-      const SizedBox(height: 10),
       _CastUrlCard(connected: connected, onMessage: _showMessage),
-      const SizedBox(height: 16),
-      const _InlineNotice(
-        message:
-            'Classic Chromecasts do not support system navigation. '
-            'Media started by other apps can only be controlled when the '
-            'receiver exposes a standard media session.',
-        isError: false,
+      const Padding(
+        padding: EdgeInsets.all(16),
+        child: Text(
+          'Classic Chromecast supports media sessions, not TV navigation. Media started by another app may not expose controls here.',
+        ),
       ),
     ],
   );
@@ -281,7 +312,7 @@ class _MediaControlsCardState extends State<_MediaControlsCard> {
           stream: client.mediaStatusStream,
           initialData: client.mediaStatus,
           builder: (context, statusSnapshot) {
-            final status = statusSnapshot.data;
+            final status = widget.connected ? statusSnapshot.data : null;
             final info = status?.mediaInformation;
             final duration = info?.duration;
             final mediaLoaded = info != null;
@@ -423,7 +454,7 @@ class _MediaControlsCardState extends State<_MediaControlsCard> {
                         style: FilledButton.styleFrom(
                           shape: const CircleBorder(),
                           padding: EdgeInsets.zero,
-                          backgroundColor: colors.primary,
+                          backgroundColor: AppColors.actionFill,
                         ),
                         child: Icon(
                           playing
@@ -455,7 +486,7 @@ class _MediaControlsCardState extends State<_MediaControlsCard> {
                 if (!mediaLoaded && widget.connected) ...[
                   const SizedBox(height: 8),
                   Text(
-                    'Cast a direct media link below to enable playback controls.',
+                    'No controllable media session. Start compatible media on this receiver or cast a direct media link.',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: colors.onSurfaceVariant,
@@ -574,15 +605,17 @@ class _VolumeCardState extends State<_VolumeCard> {
   double? _volume;
   double _lastAudibleVolume = 0.5;
   String? _deviceId;
+  bool _dragging = false;
 
   @override
   void didUpdateWidget(covariant _VolumeCard oldWidget) {
     super.didUpdateWidget(oldWidget);
     final id = widget.session?.device?.deviceID;
-    if (id != _deviceId) {
+    if (!_dragging || id != _deviceId) {
       _deviceId = id;
-      _volume = widget.session?.currentDeviceVolume.clamp(0, 1).toDouble();
-      if ((_volume ?? 0) > 0) _lastAudibleVolume = _volume!;
+      _volume = null;
+      final reported = widget.session?.currentDeviceVolume ?? 0;
+      if (reported > 0) _lastAudibleVolume = reported;
     }
   }
 
@@ -590,7 +623,8 @@ class _VolumeCardState extends State<_VolumeCard> {
     if (!widget.connected) return;
     final value = next.clamp(0.0, 1.0);
     setState(() {
-      _volume = value;
+      _volume = null;
+      _dragging = false;
       if (value > 0) _lastAudibleVolume = value;
     });
     try {
@@ -627,7 +661,10 @@ class _VolumeCardState extends State<_VolumeCard> {
               child: Slider(
                 value: value,
                 onChanged: widget.connected
-                    ? (next) => setState(() => _volume = next)
+                    ? (next) => setState(() {
+                        _volume = next;
+                        _dragging = true;
+                      })
                     : null,
                 onChangeEnd: widget.connected ? _setVolume : null,
               ),
@@ -724,7 +761,7 @@ class _CastUrlCardState extends State<_CastUrlCard> {
             ),
             const SizedBox(height: 6),
             Text(
-              'Paste a direct audio or video URL that your Chromecast can open.',
+              'Use a direct audio or video link, not a webpage. The receiver must support the format and be able to access the file.',
               style: Theme.of(
                 context,
               ).textTheme.bodySmall?.copyWith(color: colors.onSurfaceVariant),

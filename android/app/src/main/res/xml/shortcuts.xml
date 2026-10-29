@@ -1,0 +1,5 @@
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut android:shortcutId="open_remote" android:enabled="true" android:icon="@drawable/ic_remote_tile" android:shortcutShortLabel="@string/remote_shortcut_label">
+        <intent android:action="com.example.chromecast_remote.OPEN_REMOTE" android:targetPackage="com.example.chromecast_remote" android:targetClass="com.example.chromecast_remote.MainActivity" />
+    </shortcut>
+</shortcuts>

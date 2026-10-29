@@ -4,36 +4,37 @@ import '../../core/protocol/android_tv/android_key_codes.dart';
 import '../../core/protocol/android_tv/android_tv_remote_client.dart';
 import '../../core/protocol/android_tv/certificate_manager.dart';
 import '../pairing/paired_device_store.dart';
+import '../apps/app_launcher.dart';
 import 'remote_controller.dart';
 
 /// Maps a [RemoteCommand] to its Android key code.
 int keyCodeForCommand(RemoteCommand command) => switch (command) {
-      RemoteCommand.up => AndroidKeyCodes.dpadUp,
-      RemoteCommand.down => AndroidKeyCodes.dpadDown,
-      RemoteCommand.left => AndroidKeyCodes.dpadLeft,
-      RemoteCommand.right => AndroidKeyCodes.dpadRight,
-      RemoteCommand.select => AndroidKeyCodes.dpadCenter,
-      RemoteCommand.back => AndroidKeyCodes.back,
-      RemoteCommand.home => AndroidKeyCodes.home,
-      RemoteCommand.power => AndroidKeyCodes.power,
-      RemoteCommand.volumeUp => AndroidKeyCodes.volumeUp,
-      RemoteCommand.volumeDown => AndroidKeyCodes.volumeDown,
-      RemoteCommand.mute => AndroidKeyCodes.mute,
-      RemoteCommand.playPause => AndroidKeyCodes.mediaPlayPause,
-      RemoteCommand.play => AndroidKeyCodes.mediaPlay,
-      RemoteCommand.pause => AndroidKeyCodes.mediaPause,
-      RemoteCommand.stop => AndroidKeyCodes.mediaStop,
-      RemoteCommand.next => AndroidKeyCodes.mediaNext,
-      RemoteCommand.previous => AndroidKeyCodes.mediaPrevious,
-      RemoteCommand.rewind => AndroidKeyCodes.mediaRewind,
-      RemoteCommand.fastForward => AndroidKeyCodes.mediaFastForward,
-    };
+  RemoteCommand.up => AndroidKeyCodes.dpadUp,
+  RemoteCommand.down => AndroidKeyCodes.dpadDown,
+  RemoteCommand.left => AndroidKeyCodes.dpadLeft,
+  RemoteCommand.right => AndroidKeyCodes.dpadRight,
+  RemoteCommand.select => AndroidKeyCodes.dpadCenter,
+  RemoteCommand.back => AndroidKeyCodes.back,
+  RemoteCommand.home => AndroidKeyCodes.home,
+  RemoteCommand.power => AndroidKeyCodes.power,
+  RemoteCommand.volumeUp => AndroidKeyCodes.volumeUp,
+  RemoteCommand.volumeDown => AndroidKeyCodes.volumeDown,
+  RemoteCommand.mute => AndroidKeyCodes.mute,
+  RemoteCommand.playPause => AndroidKeyCodes.mediaPlayPause,
+  RemoteCommand.play => AndroidKeyCodes.mediaPlay,
+  RemoteCommand.pause => AndroidKeyCodes.mediaPause,
+  RemoteCommand.stop => AndroidKeyCodes.mediaStop,
+  RemoteCommand.next => AndroidKeyCodes.mediaNext,
+  RemoteCommand.previous => AndroidKeyCodes.mediaPrevious,
+  RemoteCommand.rewind => AndroidKeyCodes.mediaRewind,
+  RemoteCommand.fastForward => AndroidKeyCodes.mediaFastForward,
+};
 
 /// Drives a paired Google TV / Android TV over Android TV Remote Protocol v2.
 ///
 /// Pairing itself is handled by `AndroidTvPairingClient` (see the pairing
 /// feature); this controller reconnects using the persisted certificate pin.
-class AndroidTvRemoteController implements RemoteController {
+class AndroidTvRemoteController implements AppLaunchTarget {
   AndroidTvRemoteController({
     required this.pairedDevice,
     required CertificateManager certificates,
@@ -46,12 +47,15 @@ class AndroidTvRemoteController implements RemoteController {
   final PairedDeviceStore store;
   final AndroidTvRemoteClient _client;
 
-  final _stateController =
-      StreamController<RemoteConnectionState>.broadcast();
+  final _stateController = StreamController<RemoteConnectionState>.broadcast();
   RemoteConnectionState _state = RemoteConnectionState.disconnected;
   String? _lastError;
   Timer? _reconnectTimer;
   bool _userDisconnected = false;
+  int _attempt = 0;
+  bool requiresPairing = false;
+
+  void cancelHeldCommands() => _client.cancelLongPress();
 
   AndroidTvRemoteClient get client => _client;
 
@@ -82,8 +86,7 @@ class AndroidTvRemoteController implements RemoteController {
       },
       if (features & AndroidTvFeatures.power != 0) RemoteCapability.power,
       if (features & AndroidTvFeatures.volume != 0) RemoteCapability.volume,
-      if (features & AndroidTvFeatures.appLink != 0)
-        RemoteCapability.appLaunch,
+      if (features & AndroidTvFeatures.appLink != 0) RemoteCapability.appLaunch,
     };
   }
 
@@ -97,13 +100,11 @@ class AndroidTvRemoteController implements RemoteController {
       RemoteCommand.right ||
       RemoteCommand.select ||
       RemoteCommand.back ||
-      RemoteCommand.home =>
-        caps.contains(RemoteCapability.navigation),
+      RemoteCommand.home => caps.contains(RemoteCapability.navigation),
       RemoteCommand.power => caps.contains(RemoteCapability.power),
       RemoteCommand.volumeUp ||
       RemoteCommand.volumeDown ||
-      RemoteCommand.mute =>
-        caps.contains(RemoteCapability.volume),
+      RemoteCommand.mute => caps.contains(RemoteCapability.volume),
       RemoteCommand.playPause ||
       RemoteCommand.play ||
       RemoteCommand.pause ||
@@ -111,8 +112,7 @@ class AndroidTvRemoteController implements RemoteController {
       RemoteCommand.next ||
       RemoteCommand.previous ||
       RemoteCommand.rewind ||
-      RemoteCommand.fastForward =>
-        caps.contains(RemoteCapability.mediaControl),
+      RemoteCommand.fastForward => caps.contains(RemoteCapability.mediaControl),
     };
   }
 
@@ -122,7 +122,11 @@ class AndroidTvRemoteController implements RemoteController {
         _state == RemoteConnectionState.connected) {
       return;
     }
+    final attempt = ++_attempt;
+    _reconnectTimer?.cancel();
     _userDisconnected = false;
+    requiresPairing = false;
+    _lastError = null;
     _setState(RemoteConnectionState.connecting);
     try {
       await _client.connect(
@@ -135,21 +139,30 @@ class AndroidTvRemoteController implements RemoteController {
           'The TV connected but never became ready for commands.',
         ),
       );
+      if (attempt != _attempt || _userDisconnected) return;
       _setState(RemoteConnectionState.connected);
     } on RemoteConnectionException catch (error) {
+      if (attempt != _attempt || _userDisconnected) return;
       if (error.requiresPairing) {
-        // Credentials are stale; drop them so the UI offers re-pairing.
-        await store.remove(pairedDevice.serviceName);
+        // Preserve the saved TV; offer pairing without silently discarding trust.
+        requiresPairing = true;
       }
+      await _client.close();
+      if (attempt != _attempt || _userDisconnected) return;
       _fail(error.message);
     } catch (error) {
-      _fail('$error');
+      if (attempt != _attempt || _userDisconnected) return;
+      await _client.close();
+      if (attempt != _attempt || _userDisconnected) return;
+      _fail('Could not reach the TV. Check its power and Wi-Fi connection.');
     }
   }
 
   @override
   Future<void> disconnect() async {
     _userDisconnected = true;
+    _attempt++;
+    cancelHeldCommands();
     _reconnectTimer?.cancel();
     await _client.close();
     _setState(RemoteConnectionState.disconnected);
@@ -170,6 +183,7 @@ class AndroidTvRemoteController implements RemoteController {
 
   /// Launches an app on the TV via its deep link (e.g. `netflix://`).
   /// Requires the APP_LINK feature.
+  @override
   void launchAppLink(String link) {
     if (!capabilities.contains(RemoteCapability.appLaunch)) return;
     _client.launchAppLink(link);
@@ -177,9 +191,11 @@ class AndroidTvRemoteController implements RemoteController {
 
   /// Package name of the app currently in the foreground on the TV, when the
   /// device reports it (IME feature). Null when unknown.
+  @override
   String? get currentApp => _client.currentApp;
 
   /// Updates when the foreground app on the TV changes.
+  @override
   Stream<String> get currentAppUpdates => _client.currentAppUpdates;
 
   /// Starts key repetition for a held button (volume / D-pad).
@@ -195,17 +211,20 @@ class AndroidTvRemoteController implements RemoteController {
   }
 
   int? _longPressableKeyCode(RemoteCommand command) => switch (command) {
-        RemoteCommand.up => AndroidKeyCodes.dpadUp,
-        RemoteCommand.down => AndroidKeyCodes.dpadDown,
-        RemoteCommand.left => AndroidKeyCodes.dpadLeft,
-        RemoteCommand.right => AndroidKeyCodes.dpadRight,
-        RemoteCommand.volumeUp => AndroidKeyCodes.volumeUp,
-        RemoteCommand.volumeDown => AndroidKeyCodes.volumeDown,
-        _ => null,
-      };
+    RemoteCommand.up => AndroidKeyCodes.dpadUp,
+    RemoteCommand.down => AndroidKeyCodes.dpadDown,
+    RemoteCommand.left => AndroidKeyCodes.dpadLeft,
+    RemoteCommand.right => AndroidKeyCodes.dpadRight,
+    RemoteCommand.volumeUp => AndroidKeyCodes.volumeUp,
+    RemoteCommand.volumeDown => AndroidKeyCodes.volumeDown,
+    _ => null,
+  };
 
   Future<void> dispose() async {
+    _userDisconnected = true;
+    _attempt++;
     _reconnectTimer?.cancel();
+    _client.onDisconnected = null;
     await _client.dispose();
     await _stateController.close();
   }

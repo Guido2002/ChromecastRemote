@@ -16,10 +16,12 @@ Future<void> checkForAppUpdate(
   if (userInitiated) {
     messenger
       ..hideCurrentSnackBar()
-      ..showSnackBar(const SnackBar(
-        content: Text('Checking GitHub for the latest version…'),
-        duration: Duration(seconds: 2),
-      ));
+      ..showSnackBar(
+        const SnackBar(
+          content: Text('Checking GitHub for the latest version…'),
+          duration: Duration(seconds: 2),
+        ),
+      );
   }
 
   final String currentVersion;
@@ -37,6 +39,27 @@ Future<void> checkForAppUpdate(
 
   switch (result) {
     case UpdateAvailable(:final release):
+      if (!userInitiated) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('Update available: ${release.name}'),
+            action: SnackBarAction(
+              label: 'Review',
+              onPressed: () {
+                if (!context.mounted) return;
+                showDialog<void>(
+                  context: context,
+                  builder: (_) => UpdateAvailableDialog(
+                    release: release,
+                    currentVersion: currentVersion,
+                  ),
+                );
+              },
+            ),
+          ),
+        );
+        return;
+      }
       await showDialog<void>(
         context: context,
         builder: (context) => UpdateAvailableDialog(
@@ -46,14 +69,14 @@ Future<void> checkForAppUpdate(
       );
     case UpToDate():
       if (userInitiated) {
-        _showMessage(context, 'You are on the latest version ($currentVersion).');
+        _showMessage(
+          context,
+          'You are on the latest version ($currentVersion).',
+        );
       }
     case NoReleasesPublished():
       if (userInitiated) {
-        _showMessage(
-          context,
-          'No releases have been published on GitHub yet.',
-        );
+        _showMessage(context, 'No releases have been published on GitHub yet.');
       }
     case UpdateCheckFailed(:final message):
       if (userInitiated) {

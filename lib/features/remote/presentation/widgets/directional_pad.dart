@@ -1,12 +1,9 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-/// The large circular D-pad from the reference remote design: a dark outer
-/// ring with four chevron regions and a lighter center OK circle.
-///
-/// Each region fires [onDirection] with one of 'up', 'down', 'left', 'right';
-/// the center fires [onSelect]. Directions support long-press repetition via
-/// [onDirectionLongPressStart] / [onDirectionLongPressEnd].
+/// Every visible quadrant is interactive; OK owns the center circle.
 class DirectionalPad extends StatelessWidget {
   const DirectionalPad({
     required this.enabled,
@@ -30,113 +27,113 @@ class DirectionalPad extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
     return LayoutBuilder(
       builder: (context, constraints) {
-        final available = (constraints.maxWidth - 16).clamp(0.0, maxDiameter);
-        final diameter = available < 240
-            ? available
-            : available.clamp(240.0, maxDiameter);
+        final diameter = (constraints.maxWidth - 16).clamp(0.0, maxDiameter);
         return SizedBox.square(
           dimension: diameter,
           child: Stack(
             alignment: Alignment.center,
             children: [
-              // Outer ring.
-              Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: colors.surfaceContainerHigh,
-                  border: Border.all(color: colors.outlineVariant),
+              for (final (direction, icon, angle, alignment) in [
+                (
+                  'up',
+                  Icons.keyboard_arrow_up_rounded,
+                  -math.pi / 2,
+                  const Alignment(0, -0.72),
                 ),
-              ),
-              _PadRegion(
-                alignment: Alignment.topCenter,
-                padding: EdgeInsets.only(top: diameter * 0.06),
-                icon: Icons.keyboard_arrow_up_rounded,
-                semanticLabel: 'Up',
-                enabled: enabled,
-                onTap: () => onDirection('up'),
-                onLongPressStart: onDirectionLongPressStart == null
-                    ? null
-                    : () => onDirectionLongPressStart!('up'),
-                onLongPressEnd: onDirectionLongPressEnd == null
-                    ? null
-                    : () => onDirectionLongPressEnd!('up'),
-              ),
-              _PadRegion(
-                alignment: Alignment.bottomCenter,
-                padding: EdgeInsets.only(bottom: diameter * 0.06),
-                icon: Icons.keyboard_arrow_down_rounded,
-                semanticLabel: 'Down',
-                enabled: enabled,
-                onTap: () => onDirection('down'),
-                onLongPressStart: onDirectionLongPressStart == null
-                    ? null
-                    : () => onDirectionLongPressStart!('down'),
-                onLongPressEnd: onDirectionLongPressEnd == null
-                    ? null
-                    : () => onDirectionLongPressEnd!('down'),
-              ),
-              _PadRegion(
-                alignment: Alignment.centerLeft,
-                padding: EdgeInsets.only(left: diameter * 0.06),
-                icon: Icons.keyboard_arrow_left_rounded,
-                semanticLabel: 'Left',
-                enabled: enabled,
-                onTap: () => onDirection('left'),
-                onLongPressStart: onDirectionLongPressStart == null
-                    ? null
-                    : () => onDirectionLongPressStart!('left'),
-                onLongPressEnd: onDirectionLongPressEnd == null
-                    ? null
-                    : () => onDirectionLongPressEnd!('left'),
-              ),
-              _PadRegion(
-                alignment: Alignment.centerRight,
-                padding: EdgeInsets.only(right: diameter * 0.06),
-                icon: Icons.keyboard_arrow_right_rounded,
-                semanticLabel: 'Right',
-                enabled: enabled,
-                onTap: () => onDirection('right'),
-                onLongPressStart: onDirectionLongPressStart == null
-                    ? null
-                    : () => onDirectionLongPressStart!('right'),
-                onLongPressEnd: onDirectionLongPressEnd == null
-                    ? null
-                    : () => onDirectionLongPressEnd!('right'),
-              ),
-              // Center OK circle.
-              SizedBox.square(
-                dimension: diameter * 0.42,
-                child: Material(
-                  color: enabled
-                      ? colors.surfaceContainerLow
-                      : colors.surfaceContainerHighest.withValues(alpha: 0.5),
-                  shape: CircleBorder(
-                    side: BorderSide(
-                      color: enabled
-                          ? colors.outline
-                          : colors.outlineVariant.withValues(alpha: 0.5),
+                (
+                  'right',
+                  Icons.keyboard_arrow_right_rounded,
+                  0.0,
+                  const Alignment(0.72, 0),
+                ),
+                (
+                  'down',
+                  Icons.keyboard_arrow_down_rounded,
+                  math.pi / 2,
+                  const Alignment(0, 0.72),
+                ),
+                (
+                  'left',
+                  Icons.keyboard_arrow_left_rounded,
+                  math.pi,
+                  const Alignment(-0.72, 0),
+                ),
+              ])
+                Positioned.fill(
+                  child: ClipPath(
+                    clipper: _QuadrantClipper(angle),
+                    child: Semantics(
+                      button: true,
+                      enabled: enabled,
+                      label:
+                          '${direction[0].toUpperCase()}${direction.substring(1)}',
+                      child: GestureDetector(
+                        onLongPressStart:
+                            enabled && onDirectionLongPressStart != null
+                            ? (_) => onDirectionLongPressStart!(direction)
+                            : null,
+                        onLongPressEnd:
+                            enabled && onDirectionLongPressEnd != null
+                            ? (_) => onDirectionLongPressEnd!(direction)
+                            : null,
+                        onLongPressCancel:
+                            enabled && onDirectionLongPressEnd != null
+                            ? () => onDirectionLongPressEnd!(direction)
+                            : null,
+                        child: Material(
+                          color: colors.surfaceContainerHigh,
+                          child: InkWell(
+                            onTap: enabled
+                                ? () {
+                                    HapticFeedback.lightImpact();
+                                    onDirection(direction);
+                                  }
+                                : null,
+                            child: Align(
+                              alignment: alignment,
+                              child: ExcludeSemantics(
+                                child: Icon(
+                                  icon,
+                                  size: 36,
+                                  color: enabled
+                                      ? colors.onSurface
+                                      : colors.onSurfaceVariant,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
-                  child: InkWell(
-                    customBorder: const CircleBorder(),
-                    overlayColor: WidgetStatePropertyAll(
-                      colors.primary.withValues(alpha: 0.12),
+                ),
+              SizedBox.square(
+                dimension: diameter * 0.42,
+                child: Semantics(
+                  button: true,
+                  enabled: enabled,
+                  label: 'OK, select',
+                  child: Material(
+                    color: colors.surfaceContainerLow,
+                    shape: CircleBorder(
+                      side: BorderSide(color: colors.outline),
                     ),
-                    onTap: enabled
-                        ? () {
-                            HapticFeedback.lightImpact();
-                            onSelect();
-                          }
-                        : null,
-                    child: Center(
-                      child: Text(
-                        'OK',
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(
-                              color: enabled
-                                  ? colors.onSurface
-                                  : colors.onSurface.withValues(alpha: 0.35),
-                            ),
+                    clipBehavior: Clip.antiAlias,
+                    child: InkWell(
+                      customBorder: const CircleBorder(),
+                      onTap: enabled
+                          ? () {
+                              HapticFeedback.lightImpact();
+                              onSelect();
+                            }
+                          : null,
+                      child: Center(
+                        child: ExcludeSemantics(
+                          child: Text(
+                            'OK',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -150,64 +147,21 @@ class DirectionalPad extends StatelessWidget {
   }
 }
 
-class _PadRegion extends StatelessWidget {
-  const _PadRegion({
-    required this.alignment,
-    required this.padding,
-    required this.icon,
-    required this.semanticLabel,
-    required this.enabled,
-    required this.onTap,
-    this.onLongPressStart,
-    this.onLongPressEnd,
-  });
-
-  final Alignment alignment;
-  final EdgeInsets padding;
-  final IconData icon;
-  final String semanticLabel;
-  final bool enabled;
-  final VoidCallback onTap;
-  final VoidCallback? onLongPressStart;
-  final VoidCallback? onLongPressEnd;
+class _QuadrantClipper extends CustomClipper<Path> {
+  const _QuadrantClipper(this.angle);
+  final double angle;
 
   @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return Align(
-      alignment: alignment,
-      child: Padding(
-        padding: padding,
-        child: GestureDetector(
-          onLongPressStart: enabled && onLongPressStart != null
-              ? (_) => onLongPressStart!()
-              : null,
-          onLongPressEnd: enabled && onLongPressEnd != null
-              ? (_) => onLongPressEnd!()
-              : null,
-          onLongPressCancel: enabled && onLongPressEnd != null
-              ? onLongPressEnd
-              : null,
-          child: IconButton(
-            tooltip: semanticLabel,
-            onPressed: enabled
-                ? () {
-                    HapticFeedback.lightImpact();
-                    onTap();
-                  }
-                : null,
-            icon: Icon(icon),
-            iconSize: 44,
-            color: colors.onSurfaceVariant,
-            disabledColor: colors.onSurfaceVariant.withValues(alpha: 0.35),
-            style: IconButton.styleFrom(
-              fixedSize: const Size(72, 72),
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              overlayColor: colors.primary.withValues(alpha: 0.12),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  Path getClip(Size size) => Path()
+    ..moveTo(size.width / 2, size.height / 2)
+    ..arcTo(
+      Offset.zero & size,
+      angle - math.pi / 4 - 0.001,
+      math.pi / 2 + 0.002,
+      false,
+    )
+    ..close();
+
+  @override
+  bool shouldReclip(_QuadrantClipper oldClipper) => oldClipper.angle != angle;
 }

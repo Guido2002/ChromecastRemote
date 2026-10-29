@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../../shared/presentation/adaptive_layout.dart';
@@ -19,7 +22,6 @@ class SettingsView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
     return SingleChildScrollView(
       padding: AdaptiveLayout.pagePadding(context),
       child: AdaptiveContent(
@@ -32,14 +34,82 @@ class SettingsView extends StatelessWidget {
             Card(
               child: Column(
                 children: [
+                  if (Platform.isAndroid) ...[
+                    ListTile(
+                      leading: const Icon(Icons.bolt_outlined),
+                      title: const Text('Quick access'),
+                      subtitle: const Text(
+                        'Add TV remote to Quick Settings or long-press the launcher icon.',
+                      ),
+                      onTap: () async {
+                        try {
+                          await const MethodChannel(
+                            'chromecast_remote/navigation',
+                          ).invokeMethod<int>('addQuickSettingsTile');
+                        } on PlatformException {
+                          /* Instructions below cover unsupported launchers. */
+                        } on MissingPluginException {
+                          /* Other builds can follow the manual instructions. */
+                        }
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'You can also edit Quick Settings and add TV remote, or long-press the app icon for its remote shortcut.',
+                              ),
+                            ),
+                          );
+                        }
+                      },
+                    ),
+                    const Divider(height: 1, indent: 56),
+                  ],
                   ListTile(
-                    leading: const Icon(Icons.palette_outlined),
-                    title: const Text('Appearance'),
-                    subtitle: const Text('Dark, optimized for remotes'),
-                    trailing: Text(
-                      'System',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colors.onSurfaceVariant,
+                    leading: const Icon(Icons.help_outline),
+                    title: const Text('Connection help'),
+                    subtitle: const Text(
+                      'Find a missing TV or recover a connection.',
+                    ),
+                    onTap: () => showModalBottomSheet<void>(
+                      context: context,
+                      showDragHandle: true,
+                      builder: (context) => const SafeArea(
+                        child: SingleChildScrollView(
+                          padding: EdgeInsets.all(24),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'Find and reconnect your TV',
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              SizedBox(height: 16),
+                              Text(
+                                '1. Check that your TV is powered on and connected to the same Wi-Fi as your phone.',
+                              ),
+                              SizedBox(height: 12),
+                              Text(
+                                '2. Allow local network access if your phone asks. Guest Wi-Fi and network isolation can prevent discovery.',
+                              ),
+                              SizedBox(height: 12),
+                              Text(
+                                '3. Refresh Devices, then select the saved TV again. This checks its current network address.',
+                              ),
+                              SizedBox(height: 12),
+                              Text(
+                                '4. If the TV no longer trusts the connection, use Pair again in Remote options and enter its new code.',
+                              ),
+                              SizedBox(height: 12),
+                              Text(
+                                'Choose TV remote for navigation and apps. Cast playback only controls compatible media sessions. Power and volume depend on your TV and audio setup.',
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                   ),

@@ -8,6 +8,7 @@ abstract final class AppColors {
   static const surfaceHighest = Color(0xFF202A35);
   static const outline = Color(0xFF303B49);
   static const primary = Color(0xFF2388FF);
+  static const actionFill = Color(0xFF1261C4);
   static const primaryContainer = Color(0xFF0A376A);
   static const secondary = Color(0xFF3DDC84);
   static const secondaryContainer = Color(0xFF123C2A);
@@ -112,6 +113,8 @@ ThemeData buildAppTheme() {
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
+        backgroundColor: AppColors.actionFill,
+        foregroundColor: Colors.white,
         minimumSize: const Size(48, 52),
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -193,8 +196,8 @@ ThemeData buildAppTheme() {
     ),
     chipTheme: base.chipTheme.copyWith(
       backgroundColor: scheme.surfaceContainerLow,
-      selectedColor: scheme.primary,
-      secondarySelectedColor: scheme.primary,
+      selectedColor: AppColors.actionFill,
+      secondarySelectedColor: AppColors.actionFill,
       labelStyle: TextStyle(color: scheme.onSurface),
       secondaryLabelStyle: TextStyle(
         color: scheme.onPrimary,
@@ -231,6 +234,7 @@ class AppPageTransitionsBuilder extends PageTransitionsBuilder {
     Animation<double> secondaryAnimation,
     Widget child,
   ) {
+    if (MediaQuery.disableAnimationsOf(context)) return child;
     final curved = CurvedAnimation(
       parent: animation,
       curve: Curves.easeOutCubic,

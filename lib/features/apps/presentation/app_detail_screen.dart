@@ -51,8 +51,13 @@ class _AppDetailScreenState extends State<AppDetailScreen> {
   Future<void> _openOnTv() async {
     final launch = widget.onLaunchApp;
     if (launch == null || widget.connectedDeviceName == null) {
-      Navigator.of(context).pop();
-      widget.onChooseDevice();
+      if (launch != null) {
+        await launch(widget.app);
+        if (mounted) Navigator.of(context).pop();
+      } else {
+        Navigator.of(context).pop();
+        widget.onChooseDevice();
+      }
       return;
     }
     setState(() => _launching = true);
@@ -82,22 +87,7 @@ class _AppDetailScreenState extends State<AppDetailScreen> {
     final app = widget.app;
     final colors = Theme.of(context).colorScheme;
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('App details'),
-        actions: [
-          IconButton(
-            tooltip: _favorite == true ? 'Remove from remote' : 'Add to remote',
-            onPressed: _favorite == null ? null : _toggleFavorite,
-            icon: Icon(
-              _favorite == true
-                  ? Icons.star_rounded
-                  : Icons.star_border_rounded,
-            ),
-            color: _favorite == true ? colors.primary : null,
-          ),
-          const SizedBox(width: 4),
-        ],
-      ),
+      appBar: AppBar(title: const Text('App details')),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: AdaptiveLayout.pagePadding(context),
@@ -182,7 +172,7 @@ class _AppDetailScreenState extends State<AppDetailScreen> {
                             : Icons.link_rounded,
                         label: 'Launch method',
                         value: app.requiresStoreOpenConfirmation
-                            ? 'Play Store assisted'
+                            ? 'Play Store link · select Open on TV if needed'
                             : 'Direct app link',
                       ),
                     ],

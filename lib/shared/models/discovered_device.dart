@@ -41,13 +41,12 @@ class DiscoveredDevice {
   final GoogleCastDevice? castDevice;
 
   String get protocolLabel => switch (protocol) {
-        DeviceProtocol.androidTvRemote => 'Google TV / Android TV remote',
-        DeviceProtocol.googleCast => 'Google Cast (media control)',
-      };
+    DeviceProtocol.androidTvRemote => 'TV remote · navigation and apps',
+    DeviceProtocol.googleCast => 'Cast playback · media sessions',
+  };
 
   @override
-  bool operator ==(Object other) =>
-      other is DiscoveredDevice && other.id == id;
+  bool operator ==(Object other) => other is DiscoveredDevice && other.id == id;
 
   @override
   int get hashCode => id.hashCode;

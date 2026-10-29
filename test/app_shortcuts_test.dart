@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 
 import 'package:chromecast_remote/core/storage/secure_store.dart';
 import 'package:chromecast_remote/features/apps/app_shortcut_store.dart';
@@ -249,35 +250,41 @@ void main() {
     });
   });
 
-  testWidgets('launching a shortcut gives immediate visual confirmation', (
-    tester,
-  ) async {
-    final store = AppShortcutStore(store: InMemorySecureStore());
-    TvApp? launchedApp;
+  testWidgets(
+    'launching a shortcut shows progress until the request finishes',
+    (tester) async {
+      final store = AppShortcutStore(store: InMemorySecureStore());
+      TvApp? launchedApp;
+      final completion = Completer<void>();
 
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: buildAppTheme(),
-        home: Scaffold(
-          body: AppShortcutsSection(
-            store: store,
-            enabled: true,
-            activePackage: null,
-            onLaunch: (app) => launchedApp = app,
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: buildAppTheme(),
+          home: Scaffold(
+            body: AppShortcutsSection(
+              store: store,
+              enabled: true,
+              activePackage: null,
+              onLaunch: (app) async {
+                launchedApp = app;
+                await completion.future;
+              },
+            ),
           ),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
+      );
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Netflix'));
-    await tester.pump();
+      await tester.tap(find.text('Netflix'));
+      await tester.pump();
 
-    expect(launchedApp?.id, 'netflix');
-    expect(find.byIcon(Icons.check_rounded), findsOneWidget);
+      expect(launchedApp?.id, 'netflix');
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(find.byIcon(Icons.check_rounded), findsNothing);
 
-    await tester.pump(const Duration(seconds: 1));
-    await tester.pumpAndSettle();
-    expect(find.byIcon(Icons.check_rounded), findsNothing);
-  });
+      completion.complete();
+      await tester.pumpAndSettle();
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+    },
+  );
 }

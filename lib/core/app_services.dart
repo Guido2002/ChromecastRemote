@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import '../features/apps/app_shortcut_store.dart';
+import '../shared/models/discovered_device.dart';
 import '../features/discovery/discovery_service.dart';
 import '../features/pairing/paired_device_store.dart';
 import '../features/remote/android_tv_connection_manager.dart';
@@ -14,11 +17,13 @@ class AppServices {
 
   final SecureStore secureStore = const FlutterSecureStore();
 
-  late final CertificateManager certificates =
-      CertificateManager(store: secureStore);
+  late final CertificateManager certificates = CertificateManager(
+    store: secureStore,
+  );
 
-  late final PairedDeviceStore pairedDevices =
-      PairedDeviceStore(store: secureStore);
+  late final PairedDeviceStore pairedDevices = PairedDeviceStore(
+    store: secureStore,
+  );
 
   late final DiscoveryService discovery = DiscoveryService();
 
@@ -26,8 +31,30 @@ class AppServices {
       AndroidTvConnectionManager(
         certificates: certificates,
         store: pairedDevices,
+        resolveHost: (serviceName) async {
+          String? find(Iterable<DiscoveredDevice> devices) {
+            for (final device in devices) {
+              if (device.id == 'atv:$serviceName') {
+                return device.host;
+              }
+            }
+            return null;
+          }
+
+          final cached = find(discovery.currentDevices);
+          if (cached != null) return cached;
+          try {
+            final devices = await discovery.devices
+                .firstWhere((devices) => find(devices) != null)
+                .timeout(const Duration(seconds: 2));
+            return find(devices);
+          } on TimeoutException {
+            return null;
+          }
+        },
       );
 
-  late final AppShortcutStore appShortcuts =
-      AppShortcutStore(store: secureStore);
+  late final AppShortcutStore appShortcuts = AppShortcutStore(
+    store: secureStore,
+  );
 }

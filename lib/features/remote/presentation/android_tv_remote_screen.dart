@@ -5,161 +5,129 @@ import 'package:flutter/services.dart';
 
 import '../../../core/app_services.dart';
 import '../../../core/protocol/android_tv/android_key_codes.dart';
+import '../../../core/protocol/android_tv/android_tv_remote_client.dart';
 import '../../../shared/presentation/adaptive_layout.dart';
-import '../../../shared/presentation/app_motion.dart';
+import '../../../shared/presentation/app_theme.dart';
+import '../../apps/app_launcher.dart';
+import '../../apps/app_shortcut_store.dart';
 import '../../apps/presentation/app_shortcuts_section.dart';
-import '../../apps/presentation/tv_app_icon.dart';
 import '../../apps/tv_app.dart';
+import '../../pairing/paired_device_store.dart';
 import '../../pairing/presentation/pairing_screen.dart';
 import '../android_tv_remote_controller.dart';
 import '../remote_controller.dart';
 import 'widgets/directional_pad.dart';
 
-const _playStorePackage = 'com.android.vending';
-
-/// The Google TV remote screen, modelled on the reference remote design:
-/// dark background, circular D-pad, round Back/Home/Assistant buttons and a
-/// joined volume pill with a separate mute button.
 class AndroidTvRemoteScreen extends StatefulWidget {
-  const AndroidTvRemoteScreen({required this.controller, super.key});
+  const AndroidTvRemoteScreen({
+    required this.controller,
+    this.embedded = false,
+    this.active = true,
+    this.onChooseDevice,
+    this.onRetry,
+    this.onForget,
+    this.shortcutStore,
+    this.onManageApps,
+    super.key,
+  });
 
   final AndroidTvRemoteController controller;
+  final bool embedded;
+  final bool active;
+  final VoidCallback? onChooseDevice;
+  final VoidCallback? onRetry;
+  final VoidCallback? onForget;
+  final AppShortcutStore? shortcutStore;
+  final VoidCallback? onManageApps;
 
   @override
   State<AndroidTvRemoteScreen> createState() => _AndroidTvRemoteScreenState();
 }
 
-class _AndroidTvRemoteScreenState extends State<AndroidTvRemoteScreen> {
+class _AndroidTvRemoteScreenState extends State<AndroidTvRemoteScreen>
+    with WidgetsBindingObserver {
   AndroidTvRemoteController get _controller => widget.controller;
-
   StreamSubscription<RemoteConnectionState>? _stateSubscription;
   StreamSubscription<String>? _appSubscription;
-  Timer? _storeOpenTimer;
-  Timer? _storeLaunchExpiry;
   RemoteConnectionState _state = RemoteConnectionState.disconnected;
   String? _activePackage;
-  String? _pendingStoreLaunchPackage;
+  bool get _connected => _state == RemoteConnectionState.connected;
+  bool _supports(RemoteCommand command) =>
+      widget.active && _controller.supports(command);
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _state = _controller.connectionState;
     _activePackage = _controller.currentApp;
     _stateSubscription = _controller.connectionStates.listen((state) {
-      if (mounted) setState(() => _state = state);
+      if (!mounted) return;
+      if (state != RemoteConnectionState.connected) {
+        _controller.cancelHeldCommands();
+      }
+      setState(() {
+        _state = state;
+        if (!_connected) _activePackage = null;
+      });
     });
     _appSubscription = _controller.currentAppUpdates.listen((package) {
       if (mounted) setState(() => _activePackage = package);
-      _handleForegroundApp(package);
     });
-    unawaited(_controller.connect());
+    // The shell owns connection attempts, address refresh, and replacement.
+    if (!widget.embedded) unawaited(_controller.connect());
+  }
+
+  @override
+  void didUpdateWidget(AndroidTvRemoteScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!widget.active) _controller.cancelHeldCommands();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) _controller.cancelHeldCommands();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _controller.cancelHeldCommands();
     _stateSubscription?.cancel();
     _appSubscription?.cancel();
-    _storeOpenTimer?.cancel();
-    _storeLaunchExpiry?.cancel();
     super.dispose();
   }
 
-  bool get _connected => _state == RemoteConnectionState.connected;
-
   void _send(RemoteCommand command) {
-    if (!_connected) return;
-    unawaited(_controller.sendCommand(command));
-  }
-
-  void _onDirection(String direction) {
-    _send(switch (direction) {
-      'up' => RemoteCommand.up,
-      'down' => RemoteCommand.down,
-      'left' => RemoteCommand.left,
-      _ => RemoteCommand.right,
-    });
-  }
-
-  void _launchApp(TvApp app) {
-    _clearPendingStoreLaunch();
-    _controller.launchAppLink(app.launchUrl);
-    if (!app.requiresStoreOpenConfirmation) return;
-
-    _pendingStoreLaunchPackage = app.packageName;
-    _storeLaunchExpiry = Timer(
-      const Duration(seconds: 4),
-      _clearPendingStoreLaunch,
-    );
-
-    // If the Play Store was already foregrounded, its package may not emit a
-    // second update. Allow the NPO details page time to settle before Open.
-    if (_activePackage == _playStorePackage) {
-      _scheduleStoreOpenConfirmation(const Duration(milliseconds: 850));
+    if (_connected && widget.active) {
+      unawaited(_controller.sendCommand(command));
     }
   }
 
-  void _handleForegroundApp(String package) {
-    final target = _pendingStoreLaunchPackage;
-    if (target == null) return;
-    if (package == target) {
-      _clearPendingStoreLaunch();
-    } else if (package == _playStorePackage) {
-      _scheduleStoreOpenConfirmation(const Duration(milliseconds: 550));
-    }
-  }
+  RemoteCommand _commandFor(String direction) => switch (direction) {
+    'up' => RemoteCommand.up,
+    'down' => RemoteCommand.down,
+    'left' => RemoteCommand.left,
+    _ => RemoteCommand.right,
+  };
 
-  void _scheduleStoreOpenConfirmation(Duration delay) {
-    _storeOpenTimer?.cancel();
-    _storeOpenTimer = Timer(delay, () {
-      if (!mounted ||
-          !_connected ||
-          _pendingStoreLaunchPackage == null ||
-          _activePackage != _playStorePackage) {
-        return;
-      }
-      _clearPendingStoreLaunch();
-      unawaited(_controller.sendCommand(RemoteCommand.select));
-    });
-  }
-
-  void _clearPendingStoreLaunch() {
-    _storeOpenTimer?.cancel();
-    _storeOpenTimer = null;
-    _storeLaunchExpiry?.cancel();
-    _storeLaunchExpiry = null;
-    _pendingStoreLaunchPackage = null;
-  }
-
-  Future<void> _forgetDevice() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Forget this TV?'),
-        content: Text(
-          'Removes the pairing with ${_controller.deviceName}. You will need '
-          'to pair again next time.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Forget'),
-          ),
-        ],
-      ),
+  Future<void> _launchApp(TvApp app) async {
+    final result = await launchTvApp(
+      _controller,
+      app,
+      isCurrentTarget: () => mounted && _connected && widget.active,
     );
-    if (confirmed != true || !mounted) return;
-    await _controller.disconnect();
-    if (mounted) Navigator.of(context).pop('forget');
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(result.message(app.name, _controller.deviceName))),
+    );
   }
 
   Future<void> _pairAgain() async {
+    _controller.cancelHeldCommands();
     await _controller.disconnect();
     if (!mounted) return;
-    final paired = await Navigator.of(context).push(
+    final paired = await Navigator.of(context).push<PairedAndroidTv>(
       MaterialPageRoute(
         builder: (_) => PairingScreen(
           serviceName: _controller.pairedDevice.serviceName,
@@ -169,506 +137,355 @@ class _AndroidTvRemoteScreenState extends State<AndroidTvRemoteScreen> {
       ),
     );
     if (paired == null || !mounted) return;
-    unawaited(_controller.connect());
+    _controller.updatePairedDevice(paired);
+    _retry();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final capabilities = _controller.capabilities;
-    final tablet = AdaptiveLayout.isTablet(context);
-
-    return Scaffold(
-      body: SafeArea(
-        child: Column(
-          children: [
-            _Header(
-              tablet: tablet,
-              deviceName: _controller.deviceName,
-              state: _state,
-              error: _controller.lastError,
-              showPower:
-                  capabilities.contains(RemoteCapability.power) || _connected,
-              onClose: () => Navigator.of(context).pop(),
-              onPower: () => _send(RemoteCommand.power),
-              onForget: _forgetDevice,
-              onRetry: () => unawaited(_controller.connect()),
-              onPairAgain: _pairAgain,
-            ),
-            if (_state == RemoteConnectionState.reconnecting)
-              const LinearProgressIndicator(minHeight: 2),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: AdaptiveLayout.pagePadding(context),
-                child: AdaptiveContent(
-                  child: MotionEntrance(
-                    child: tablet
-                        ? _buildTabletControls(capabilities)
-                        : _buildPhoneControls(capabilities),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+  void _retry() {
+    if (widget.onRetry != null) {
+      widget.onRetry!();
+    } else {
+      unawaited(_controller.connect());
+    }
   }
 
-  Widget _buildPhoneControls(Set<RemoteCapability> capabilities) {
-    return Column(
-      children: [
-        _directionalPad(maxDiameter: 300),
-        const SizedBox(height: 20),
-        _navigationButtons(),
-        const SizedBox(height: 22),
-        _nowPlaying(capabilities),
-        const SizedBox(height: 22),
-        _appShortcuts(capabilities),
-        const SizedBox(height: 28),
-        _mediaControls(capabilities),
-        const SizedBox(height: 28),
-        _volumeControls(capabilities),
-        const SizedBox(height: 12),
-      ],
-    );
-  }
-
-  Widget _buildTabletControls(Set<RemoteCapability> capabilities) {
-    return Row(
-      key: const ValueKey('android-tv-tablet-layout'),
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          flex: 5,
-          child: TabletPanel(
-            child: Column(
-              children: [
-                _sectionHeading('NAVIGATION'),
-                const SizedBox(height: 18),
-                _directionalPad(maxDiameter: 370),
-                const SizedBox(height: 22),
-                _navigationButtons(),
-                const SizedBox(height: 26),
-                _sectionHeading('VOLUME'),
-                const SizedBox(height: 12),
-                _volumeControls(capabilities),
-              ],
-            ),
+  void _moreControls() {
+    _controller.cancelHeldCommands();
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (_) => SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: _MediaControlsSection(
+            enabled: _supports(RemoteCommand.playPause),
+            onCommand: _send,
           ),
         ),
-        const SizedBox(width: 24),
-        Expanded(
-          flex: 6,
-          child: Column(
-            children: [
-              TabletPanel(child: _nowPlaying(capabilities)),
-              const SizedBox(height: 24),
-              TabletPanel(child: _appShortcuts(capabilities)),
-              const SizedBox(height: 24),
-              TabletPanel(child: _mediaControls(capabilities)),
-            ],
-          ),
-        ),
-      ],
+      ),
     );
   }
-
-  Widget _sectionHeading(String text) => Align(
-    alignment: Alignment.centerLeft,
-    child: Text(
-      text,
-      style: Theme.of(context).textTheme.labelMedium?.copyWith(
-        color: Theme.of(context).colorScheme.onSurfaceVariant,
-        letterSpacing: 1.4,
-        fontWeight: FontWeight.w700,
-      ),
-    ),
-  );
-
-  Widget _directionalPad({double maxDiameter = 340}) => Center(
-    child: DirectionalPad(
-      enabled: _connected,
-      maxDiameter: maxDiameter,
-      onDirection: _onDirection,
-      onSelect: () => _send(RemoteCommand.select),
-      onDirectionLongPressStart: (direction) =>
-          _controller.startLongPress(_commandFor(direction)),
-      onDirectionLongPressEnd: (direction) =>
-          _controller.endLongPress(_commandFor(direction)),
-    ),
-  );
-
-  Widget _navigationButtons() => Row(
-    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-    children: [
-      _RoundRemoteButton(
-        tooltip: 'Back',
-        icon: Icons.arrow_back_rounded,
-        enabled: _connected,
-        onPressed: () => _send(RemoteCommand.back),
-      ),
-      _RoundRemoteButton(
-        tooltip: 'Home',
-        icon: Icons.home_outlined,
-        enabled: _connected,
-        onPressed: () => _send(RemoteCommand.home),
-      ),
-      _RoundRemoteButton(
-        tooltip: 'Assistant (where supported)',
-        icon: Icons.mic_none_rounded,
-        enabled: _connected,
-        onPressed: () => _controller.sendRawKey(AndroidKeyCodes.search),
-      ),
-    ],
-  );
-
-  Widget _appShortcuts(Set<RemoteCapability> capabilities) =>
-      AppShortcutsSection(
-        store: AppServices.instance.appShortcuts,
-        enabled:
-            _connected && capabilities.contains(RemoteCapability.appLaunch),
-        activePackage: _activePackage,
-        onLaunch: _launchApp,
-      );
-
-  Widget _nowPlaying(Set<RemoteCapability> capabilities) => _NowPlayingCard(
-    packageName: _activePackage,
-    connected: _connected,
-    mediaEnabled:
-        _connected && capabilities.contains(RemoteCapability.mediaControl),
-    onPlayPause: () => _send(RemoteCommand.playPause),
-  );
-
-  Widget _mediaControls(Set<RemoteCapability> capabilities) =>
-      _MediaControlsSection(
-        enabled:
-            _connected && capabilities.contains(RemoteCapability.mediaControl),
-        onCommand: _send,
-      );
-
-  Widget _volumeControls(Set<RemoteCapability> capabilities) {
-    final enabled =
-        _connected && capabilities.contains(RemoteCapability.volume);
-    return Row(
-      children: [
-        _RoundRemoteButton(
-          tooltip: 'Mute',
-          icon: Icons.volume_off_outlined,
-          enabled: enabled,
-          onPressed: () => _send(RemoteCommand.mute),
-          size: 56,
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: _VolumePill(
-            enabled: enabled,
-            onVolumeDown: () => _send(RemoteCommand.volumeDown),
-            onVolumeUp: () => _send(RemoteCommand.volumeUp),
-            onVolumeDownLongStart: () =>
-                _controller.startLongPress(RemoteCommand.volumeDown),
-            onVolumeDownLongEnd: () =>
-                _controller.endLongPress(RemoteCommand.volumeDown),
-            onVolumeUpLongStart: () =>
-                _controller.startLongPress(RemoteCommand.volumeUp),
-            onVolumeUpLongEnd: () =>
-                _controller.endLongPress(RemoteCommand.volumeUp),
-          ),
-        ),
-      ],
-    );
-  }
-
-  RemoteCommand _commandFor(String direction) => switch (direction) {
-    'up' => RemoteCommand.up,
-    'down' => RemoteCommand.down,
-    'left' => RemoteCommand.left,
-    _ => RemoteCommand.right,
-  };
-}
-
-class _NowPlayingCard extends StatelessWidget {
-  const _NowPlayingCard({
-    required this.packageName,
-    required this.connected,
-    required this.mediaEnabled,
-    required this.onPlayPause,
-  });
-
-  final String? packageName;
-  final bool connected;
-  final bool mediaEnabled;
-  final VoidCallback onPlayPause;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final app = matchByPackage(catalogApps, packageName);
-    final hasForegroundApp = packageName != null && packageName!.isNotEmpty;
-    final displayName =
-        app?.name ??
-        (hasForegroundApp
-            ? _friendlyPackageName(packageName!)
-            : 'Waiting for TV activity');
-
-    return AnimatedSwitcher(
-      duration: AppMotion.standard,
-      child: Card(
-        key: ValueKey(packageName ?? 'no-app'),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
+    final status = switch (_state) {
+      RemoteConnectionState.connected =>
+        widget.active ? 'Connected' : 'Controls paused',
+      RemoteConnectionState.connecting => 'Connecting…',
+      RemoteConnectionState.reconnecting => 'Reconnecting…',
+      RemoteConnectionState.pairing => 'Pairing…',
+      RemoteConnectionState.error => 'Connection needs attention',
+      RemoteConnectionState.disconnected => 'Disconnected',
+    };
+    final body = Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Row(
             children: [
-              if (app != null)
-                TvAppIcon(app: app, size: 52, borderRadius: 14)
-              else
-                Container(
-                  width: 52,
-                  height: 52,
-                  decoration: BoxDecoration(
-                    color: colors.primaryContainer,
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Icon(
-                    hasForegroundApp
-                        ? Icons.tv_rounded
-                        : Icons.hourglass_empty_rounded,
-                    color: colors.onPrimaryContainer,
-                  ),
-                ),
-              const SizedBox(width: 13),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'NOW PLAYING',
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: colors.onSurfaceVariant,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1.1,
+                child: Semantics(
+                  button: widget.onChooseDevice != null,
+                  child: InkWell(
+                    onTap: widget.onChooseDevice,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 8,
+                        horizontal: 8,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _controller.deviceName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          Semantics(
+                            liveRegion: true,
+                            child: Text(
+                              status,
+                              style: TextStyle(
+                                color: _connected
+                                    ? colors.secondary
+                                    : colors.onSurfaceVariant,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      displayName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      hasForegroundApp
-                          ? 'Active on TV · playback state unavailable'
-                          : connected
-                          ? 'Open an app on your TV'
-                          : 'Connect to read the foreground app',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colors.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
-              IconButton.filledTonal(
-                tooltip: 'Play / pause',
-                onPressed: mediaEnabled && hasForegroundApp
-                    ? onPlayPause
-                    : null,
-                icon: const Icon(Icons.play_circle_outline_rounded),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-String _friendlyPackageName(String packageName) {
-  if (packageName.contains('launcher') || packageName.contains('tvlauncher')) {
-    return 'TV Home';
-  }
-  final segment = packageName.split('.').last;
-  if (segment.isEmpty) return packageName;
-  return '${segment[0].toUpperCase()}${segment.substring(1)}';
-}
-
-class _Header extends StatelessWidget {
-  const _Header({
-    required this.deviceName,
-    required this.state,
-    required this.error,
-    required this.showPower,
-    required this.onClose,
-    required this.onPower,
-    required this.onForget,
-    required this.onRetry,
-    required this.onPairAgain,
-    required this.tablet,
-  });
-
-  final String deviceName;
-  final RemoteConnectionState state;
-  final String? error;
-  final bool showPower;
-  final VoidCallback onClose;
-  final VoidCallback onPower;
-  final VoidCallback onForget;
-  final VoidCallback onRetry;
-  final VoidCallback? onPairAgain;
-  final bool tablet;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: colors.surface,
-        border: Border(bottom: BorderSide(color: colors.outlineVariant)),
-      ),
-      child: AdaptiveContent(
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(tablet ? 20 : 4, 8, tablet ? 20 : 8, 8),
-          child: Row(
-            children: [
-              IconButton(
-                tooltip: 'Back to devices',
-                onPressed: onClose,
-                icon: const Icon(Icons.arrow_back_rounded),
-              ),
-              Container(
-                width: 42,
-                height: 42,
-                margin: const EdgeInsets.only(right: 10),
-                decoration: BoxDecoration(
-                  color: colors.primaryContainer,
-                  borderRadius: BorderRadius.circular(11),
-                ),
-                child: Icon(Icons.tv_rounded, color: colors.onPrimaryContainer),
-              ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      deviceName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 3),
-                    _ConnectionStatus(state: state, error: error),
-                  ],
-                ),
-              ),
-              if (state == RemoteConnectionState.error) ...[
-                IconButton(
-                  tooltip: 'Retry connection',
-                  onPressed: onRetry,
-                  icon: const Icon(Icons.refresh_rounded),
-                ),
-              ],
               IconButton(
                 tooltip: 'Power',
-                onPressed: state == RemoteConnectionState.connected && showPower
-                    ? onPower
+                onPressed: _supports(RemoteCommand.power)
+                    ? () => _send(RemoteCommand.power)
                     : null,
                 icon: const Icon(Icons.power_settings_new_rounded),
-                style: IconButton.styleFrom(
-                  backgroundColor: colors.surfaceContainerHigh,
-                  shape: const CircleBorder(),
-                ),
               ),
               PopupMenuButton<String>(
-                tooltip: 'More options',
+                tooltip: 'Remote options',
                 onSelected: (value) {
-                  if (value == 'pair') onPairAgain?.call();
-                  if (value == 'forget') onForget();
+                  _controller.cancelHeldCommands();
+                  switch (value) {
+                    case 'media':
+                      _moreControls();
+                    case 'search':
+                      _controller.sendRawKey(AndroidKeyCodes.search);
+                    case 'pair':
+                      unawaited(_pairAgain());
+                    case 'forget':
+                      widget.onForget?.call();
+                  }
                 },
-                itemBuilder: (context) => [
-                  if (onPairAgain != null)
-                    const PopupMenuItem(
-                      value: 'pair',
-                      child: ListTile(
-                        leading: Icon(Icons.link_rounded),
-                        title: Text('Pair again'),
-                        contentPadding: EdgeInsets.zero,
-                      ),
-                    ),
+                itemBuilder: (_) => [
                   const PopupMenuItem(
-                    value: 'forget',
-                    child: ListTile(
-                      leading: Icon(Icons.delete_outline_rounded),
-                      title: Text('Forget this TV'),
-                      contentPadding: EdgeInsets.zero,
-                    ),
+                    value: 'media',
+                    child: Text('More playback controls'),
                   ),
+                  PopupMenuItem(
+                    value: 'search',
+                    enabled: _connected && widget.active,
+                    child: const Text('Search on TV'),
+                  ),
+                  PopupMenuItem(
+                    value: 'pair',
+                    enabled:
+                        widget.active &&
+                        _state != RemoteConnectionState.connecting,
+                    child: const Text('Pair again'),
+                  ),
+                  if (widget.onForget != null)
+                    const PopupMenuItem(
+                      value: 'forget',
+                      child: Text('Forget this TV'),
+                    ),
                 ],
               ),
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _ConnectionStatus extends StatelessWidget {
-  const _ConnectionStatus({required this.state, required this.error});
-
-  final RemoteConnectionState state;
-  final String? error;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    final (label, color) = switch (state) {
-      RemoteConnectionState.connected => ('Connected', colors.secondary),
-      RemoteConnectionState.pairing => ('Pairing…', colors.primary),
-      RemoteConnectionState.connecting => ('Connecting…', colors.primary),
-      RemoteConnectionState.reconnecting => ('Reconnecting…', colors.primary),
-      RemoteConnectionState.error => (
-        error ?? 'Connection error',
-        colors.error,
-      ),
-      RemoteConnectionState.disconnected => (
-        'Disconnected',
-        colors.onSurfaceVariant,
-      ),
-    };
-
-    return AnimatedSwitcher(
-      duration: AppMotion.standard,
-      child: Row(
-        key: ValueKey(state),
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          AnimatedContainer(
-            duration: AppMotion.standard,
-            width: 7,
-            height: 7,
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        if (_state == RemoteConnectionState.connecting ||
+            _state == RemoteConnectionState.reconnecting)
+          const LinearProgressIndicator(minHeight: 2),
+        Expanded(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final tablet =
+                  constraints.maxWidth >= 700 && constraints.maxHeight >= 550;
+              final padSize = (constraints.maxHeight - 246).clamp(
+                160.0,
+                tablet ? 340.0 : 270.0,
+              );
+              return SingleChildScrollView(
+                key: PageStorageKey(
+                  'remote-${_controller.pairedDevice.serviceName}',
+                ),
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+                child: AdaptiveContent(
+                  child: Column(
+                    children: [
+                      if (_state == RemoteConnectionState.error ||
+                          _state == RemoteConnectionState.disconnected)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: Column(
+                            children: [
+                              Text(
+                                _controller.requiresPairing
+                                    ? 'This TV needs to be paired again.'
+                                    : 'Could not reach this TV. Check its power and Wi-Fi, then retry. It may have a new network address.',
+                                textAlign: TextAlign.center,
+                              ),
+                              Wrap(
+                                spacing: 12,
+                                children: [
+                                  FilledButton(
+                                    onPressed: _controller.requiresPairing
+                                        ? _pairAgain
+                                        : _retry,
+                                    child: Text(
+                                      _controller.requiresPairing
+                                          ? 'Pair again'
+                                          : 'Find and reconnect',
+                                    ),
+                                  ),
+                                  TextButton(
+                                    onPressed: widget.onChooseDevice,
+                                    child: const Text('Choose TV'),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      if (tablet)
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(child: _essentialControls(padSize)),
+                            const SizedBox(width: 24),
+                            Expanded(
+                              child: Column(
+                                children: [
+                                  _foregroundApp(),
+                                  _shortcuts(),
+                                  const SizedBox(height: 24),
+                                  _MediaControlsSection(
+                                    enabled: _supports(RemoteCommand.playPause),
+                                    onCommand: _send,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        )
+                      else ...[
+                        _essentialControls(padSize),
+                        const SizedBox(height: 12),
+                        _foregroundApp(),
+                        _shortcuts(),
+                      ],
+                    ],
+                  ),
+                ),
+              );
+            },
           ),
-          const SizedBox(width: 7),
-          Flexible(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: color,
-                fontWeight: FontWeight.w600,
-              ),
+        ),
+      ],
+    );
+    return widget.embedded ? body : Scaffold(body: SafeArea(child: body));
+  }
+
+  Widget _essentialControls(double padSize) => Column(
+    children: [
+      DirectionalPad(
+        enabled: _supports(RemoteCommand.select),
+        maxDiameter: padSize,
+        onDirection: (direction) => _send(_commandFor(direction)),
+        onSelect: () => _send(RemoteCommand.select),
+        onDirectionLongPressStart: (direction) =>
+            _controller.startLongPress(_commandFor(direction)),
+        onDirectionLongPressEnd: (direction) =>
+            _controller.endLongPress(_commandFor(direction)),
+      ),
+      const SizedBox(height: 12),
+      Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          _RoundRemoteButton(
+            tooltip: 'Back on TV',
+            icon: Icons.arrow_back_rounded,
+            size: 56,
+            enabled: _supports(RemoteCommand.back),
+            onPressed: () => _send(RemoteCommand.back),
+          ),
+          _RoundRemoteButton(
+            tooltip: 'TV Home',
+            icon: Icons.home_outlined,
+            size: 56,
+            enabled: _supports(RemoteCommand.home),
+            onPressed: () => _send(RemoteCommand.home),
+          ),
+          _RoundRemoteButton(
+            tooltip: 'Play / pause',
+            icon: Icons.play_arrow_rounded,
+            size: 56,
+            iconWidget: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.play_arrow_rounded, size: 20),
+                Icon(Icons.pause_rounded, size: 18),
+              ],
+            ),
+            enabled: _supports(RemoteCommand.playPause),
+            onPressed: () => _send(RemoteCommand.playPause),
+          ),
+        ],
+      ),
+      const SizedBox(height: 12),
+      Row(
+        children: [
+          StreamBuilder<AndroidTvVolumeInfo>(
+            stream: _controller.client.volumeInfoUpdates,
+            initialData: _controller.client.volumeInfo,
+            builder: (context, snapshot) => _RoundRemoteButton(
+              tooltip: _connected && snapshot.data?.muted == true
+                  ? 'Unmute'
+                  : 'Mute',
+              icon: _connected && snapshot.data?.muted == true
+                  ? Icons.volume_off
+                  : Icons.volume_off_outlined,
+              size: 56,
+              enabled: _supports(RemoteCommand.mute),
+              onPressed: () => _send(RemoteCommand.mute),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _VolumePill(
+              enabled: _supports(RemoteCommand.volumeUp),
+              onVolumeDown: () => _send(RemoteCommand.volumeDown),
+              onVolumeUp: () => _send(RemoteCommand.volumeUp),
+              onVolumeDownLongStart: () =>
+                  _controller.startLongPress(RemoteCommand.volumeDown),
+              onVolumeDownLongEnd: () =>
+                  _controller.endLongPress(RemoteCommand.volumeDown),
+              onVolumeUpLongStart: () =>
+                  _controller.startLongPress(RemoteCommand.volumeUp),
+              onVolumeUpLongEnd: () =>
+                  _controller.endLongPress(RemoteCommand.volumeUp),
             ),
           ),
         ],
       ),
+      if (_connected &&
+          !_controller.capabilities.contains(RemoteCapability.volume))
+        const Padding(
+          padding: EdgeInsets.only(top: 8),
+          child: Text('Volume is not available through this TV connection.'),
+        ),
+    ],
+  );
+
+  Widget _foregroundApp() {
+    final app = matchByPackage(catalogApps, _activePackage);
+    final name =
+        app?.name ??
+        (_activePackage == null
+            ? null
+            : _activePackage!.contains('launcher')
+            ? 'TV Home'
+            : 'TV app');
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Text(
+        _connected && name != null ? 'On TV: $name' : 'TV activity unavailable',
+        style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+      ),
     );
   }
+
+  Widget _shortcuts() => AppShortcutsSection(
+    store:
+        widget.shortcutStore ??
+        AppServices.instance.appShortcuts.forDevice(
+          _controller.pairedDevice.serviceName,
+        ),
+    enabled:
+        widget.active &&
+        _controller.capabilities.contains(RemoteCapability.appLaunch),
+    activePackage: _activePackage,
+    onLaunch: _launchApp,
+    onManage: widget.onManageApps,
+  );
 }
 
 /// Media playback controls for whatever app is in the foreground on the TV.
@@ -737,7 +554,7 @@ class _MediaControlsSection extends StatelessWidget {
               style: IconButton.styleFrom(
                 fixedSize: const Size.square(72),
                 backgroundColor: enabled
-                    ? colors.primary
+                    ? AppColors.actionFill
                     : colors.surfaceContainerHigh.withValues(alpha: 0.5),
                 foregroundColor: colors.onPrimary,
                 disabledForegroundColor: colors.onSurface.withValues(
@@ -797,6 +614,7 @@ class _RoundRemoteButton extends StatelessWidget {
     required this.enabled,
     required this.onPressed,
     this.size = 64,
+    this.iconWidget,
   });
 
   final String tooltip;
@@ -804,6 +622,7 @@ class _RoundRemoteButton extends StatelessWidget {
   final bool enabled;
   final VoidCallback onPressed;
   final double size;
+  final Widget? iconWidget;
 
   @override
   Widget build(BuildContext context) {
@@ -816,7 +635,7 @@ class _RoundRemoteButton extends StatelessWidget {
               onPressed();
             }
           : null,
-      icon: Icon(icon),
+      icon: iconWidget ?? Icon(icon),
       style: IconButton.styleFrom(
         fixedSize: Size.square(size),
         backgroundColor: colors.surfaceContainerHigh,
@@ -917,26 +736,33 @@ class _VolumeHalf extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    return GestureDetector(
-      onLongPressStart: enabled ? (_) => onLongStart() : null,
-      onLongPressEnd: enabled ? (_) => onLongEnd() : null,
-      onLongPressCancel: enabled ? onLongEnd : null,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: enabled
-              ? () {
-                  HapticFeedback.lightImpact();
-                  onTap();
-                }
-              : null,
-          child: Center(
-            child: Icon(
-              icon,
-              color: enabled
-                  ? colors.onSurface
-                  : colors.onSurface.withValues(alpha: 0.3),
-              semanticLabel: tooltip,
+    return Semantics(
+      button: true,
+      enabled: enabled,
+      label: tooltip,
+      excludeSemantics: true,
+      onTap: enabled ? onTap : null,
+      child: GestureDetector(
+        onLongPressStart: enabled ? (_) => onLongStart() : null,
+        onLongPressEnd: enabled ? (_) => onLongEnd() : null,
+        onLongPressCancel: enabled ? onLongEnd : null,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: enabled
+                ? () {
+                    HapticFeedback.lightImpact();
+                    onTap();
+                  }
+                : null,
+            child: Center(
+              child: Icon(
+                icon,
+                color: enabled
+                    ? colors.onSurface
+                    : colors.onSurface.withValues(alpha: 0.3),
+                semanticLabel: tooltip,
+              ),
             ),
           ),
         ),

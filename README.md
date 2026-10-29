@@ -4,7 +4,7 @@ A universal Flutter remote for TVs on your local Wi-Fi network:
 
 - **Google TV / Android TV** (Chromecast with Google TV, Google TV Streamer,
   Android TV devices) — full remote with D-pad navigation, OK, Back, Home,
-  Power, volume, mute and assistant via **Android TV Remote Protocol v2**
+  Power, volume, mute and TV search via **Android TV Remote Protocol v2**
   (TLS + Protocol Buffers, pairing ports 6467/6466).
 - **Classic Chromecast** (gen 1–3, Ultra, other Cast receivers) — media
   session control (play/pause/seek/stop), receiver volume, and casting a
@@ -18,7 +18,10 @@ in one list, labelled by the protocol they support.
 - **Device discovery** — Find Chromecast and Google TV devices on the same Wi-Fi network.
 - **Google TV remote** — Navigate using a D-pad, select, back and home buttons.
 - **Media controls** — Play, pause, skip tracks, rewind and fast-forward in supported apps.
-- **App shortcuts** — Launch TV apps (Netflix, YouTube, Spotify, Videoland, NPO Start, Prime Video, Disney+ and more) from the remote, with official app artwork and the active app highlighted when the TV reports it. Custom shortcuts (package name or deep link) can be added in the manage sheet.
+- **App shortcuts** — Launch from Apps or remote favorites. Choose and reorder
+  favorites separately for each TV, and add personal app/content links. Foreground
+  app reports confirm an active app when available; sending a link alone does not
+  prove it opened. Technical details are optional.
 - **Volume controls** — Adjust volume or mute the connected device.
 - **Device pairing** — Pair with Google TV using the code displayed on your television.
 - **Automatic reconnection** — Reconnect to previously paired devices.
@@ -30,15 +33,17 @@ in one list, labelled by the protocol they support.
   recovery actions, immediate command feedback and reduced-motion support.
 - **Purpose-built visual identity** — A branded launcher and splash icon,
   compact blue-black controls, clearer device cards and a focused settings view.
-- **Structured home navigation** — Dedicated Devices, Remote, Apps and Settings
-  destinations, with Nearby/Saved device modes and a searchable app library.
-- **Now Playing and app details** — Foreground app status and artwork on
-  Android TV, real Cast metadata/artwork when available, plus detailed app
-  pages with launch method and persistent remote favorites.
-- **Persistent TV connection** — Quietly reconnects to the last Android TV and
-  keeps that secure session available across Devices, Remote and Apps.
-- **Saved TV management** — Rename or forget paired TVs, see honest live and
-  last-connected status, and launch apps immediately from their detail page.
+- **Remote first navigation** — Remote, Apps, and Devices share one session.
+  Returning Android TV users resume directly into their remote. First use opens
+  device discovery. Settings and connection help are available from the header.
+- **Reachable controls** — D-pad, TV Back/Home, playback toggle, mute, and volume
+  come before favorites; extended playback keys are in Remote options.
+- **Honest TV activity** — Android TV reports the active app rather than playback
+  metadata. Cast shows receiver media metadata when available.
+- **Saved device management** — One device list combines paired TVs and nearby
+  services. Cast receivers are remembered separately from trusted TV pairings.
+- **Android quick access** — Add TV remote to Quick Settings from Settings, or
+  long-press the launcher icon and choose its remote shortcut.
 
 Some controls depend on the connected device and the application currently running on the TV.
 
@@ -98,15 +103,16 @@ manifest must be kept if you regenerate `android/`.
 
 1. Connect the phone and the TV to the same Wi-Fi network.
 2. Open the app — devices appear automatically as they are discovered.
-3. Tap a **Google TV / Android TV** device to pair: enter the 6-character
+3. Tap a **TV remote** device to pair: enter the 6-character
    hexadecimal code shown on the TV. Pairing is remembered; the app
    reconnects automatically next time.
-4. Use the D-pad, Back, Home, Assistant, Power and volume controls.
-5. The **Media** section sends standard Android media key events
+4. Use the D-pad, TV Back, TV Home, Play/Pause, Power and volume controls.
+   Search on TV and extended playback keys are in Remote options.
+5. **More playback controls** sends standard Android media key events
    (Play/Pause 85, Stop 86, Next 87, Previous 88, Rewind 89, Fast Forward 90)
    to whichever app is in the foreground — YouTube, Spotify, Netflix, etc.
    Which keys an app honours varies per application.
-6. Tap a **Google Cast** device for media playback control, receiver volume
+6. Tap a **Cast playback** device for media playback control, receiver volume
    and casting a direct media link.
 
 ### Protocol notes
@@ -130,9 +136,8 @@ manifest must be kept if you regenerate `android/`.
 
 ### Updates
 
-The app checks GitHub Releases for a newer version. An update icon in the
-Devices screen runs a manual check; a silent check also runs once at launch
-and only speaks up when a newer release exists.
+The app checks GitHub Releases for a newer version. Settings offers a manual check; a background check runs once at launch
+and shows a nonblocking notice when a newer release exists.
 
 Publish a GitHub release with a tag like `v0.2.0` and attach the APK as a
 release asset. On Android the app downloads the APK itself with a progress
@@ -153,15 +158,14 @@ the release page opens in the browser instead.
   section uses a combined Play/Pause toggle and shows no playback metadata.
   A transmitted key event is not guaranteed to be handled by the foreground
   app (e.g. Netflix ignores Next/Previous).
-- The assistant button sends KEYCODE_SEARCH; voice audio streaming is not
-  implemented.
+- Search on TV sends KEYCODE_SEARCH. Voice audio streaming and phone keyboard
+  input are not implemented.
 - App shortcuts use direct app links to open installed apps without visiting
   the Play Store. Known package names in custom shortcuts use the same links,
   including previously saved shortcuts. Apps without a verified deep link
   (currently NPO Start and unknown custom packages) retain the
   `market://launch?id=<package>` fallback. For NPO Start, the remote
-  automatically confirms the Play Store's focused Open action; custom deep
-  links are preserved.
+  leaves confirmation to the user on the TV; custom deep links are preserved.
   Android TV Remote Protocol v2 cannot list installed apps, so shortcuts are
   chosen from a catalog or added manually.
 - Google TV remote connectivity relies on a protocol that is not provided as a stable public remote-control SDK.
@@ -207,3 +211,9 @@ Chromecast, Google TV and Android TV are trademarks of Google LLC.
 ## License
 
 See the `LICENSE` file for details.
+
+## Upgrade implementation status
+
+See [the upgrade plan](docs/APP_UPGRADE_PLAN.md) and
+[implementation status and validation](docs/UPGRADE_IMPLEMENTATION_STATUS.md)
+for delivered changes, remaining research, and hardware verification gates.

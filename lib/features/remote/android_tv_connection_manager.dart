@@ -7,10 +7,28 @@ import 'remote_controller.dart';
 
 /// Keeps one Android TV connection alive while the user moves between tabs.
 class AndroidTvConnectionManager {
-  AndroidTvConnectionManager({required this.certificates, required this.store});
+  AndroidTvConnectionManager({
+    required this.certificates,
+    required this.store,
+    this.resolveHost,
+    this.createController,
+  });
 
   final CertificateManager certificates;
   final PairedDeviceStore store;
+  final Future<String?> Function(String serviceName)? resolveHost;
+  final AndroidTvRemoteController Function(PairedAndroidTv device)?
+  createController;
+  Future<void> _operations = Future.value();
+
+  Future<T> _serialized<T>(Future<T> Function() operation) {
+    final result = _operations.then((_) => operation());
+    _operations = result.then<void>(
+      (_) {},
+      onError: (Object error, StackTrace stack) {},
+    );
+    return result;
+  }
 
   final _changes = StreamController<RemoteConnectionState>.broadcast();
   StreamSubscription<RemoteConnectionState>? _subscription;
@@ -24,7 +42,14 @@ class AndroidTvConnectionManager {
   bool isActive(String serviceName) =>
       _controller?.pairedDevice.serviceName == serviceName;
 
-  Future<AndroidTvRemoteController> connect(PairedAndroidTv device) async {
+  Future<AndroidTvRemoteController> connect(PairedAndroidTv device) =>
+      _serialized(() => _connect(device));
+
+  Future<AndroidTvRemoteController> _connect(PairedAndroidTv device) async {
+    final host = await resolveHost?.call(device.serviceName);
+    if (host != null && host != device.lastHost) {
+      device = device.copyWithHost(host);
+    }
     final current = _controller;
     final canReuse =
         current != null &&
@@ -62,7 +87,10 @@ class AndroidTvConnectionManager {
     if (isActive(device.serviceName)) _controller?.updatePairedDevice(updated);
   }
 
-  Future<void> forget(PairedAndroidTv device) async {
+  Future<void> forget(PairedAndroidTv device) =>
+      _serialized(() => _forget(device));
+
+  Future<void> _forget(PairedAndroidTv device) async {
     final wasActive = isActive(device.serviceName);
     if (wasActive) await _clearController();
     await store.remove(device.serviceName);
@@ -71,11 +99,13 @@ class AndroidTvConnectionManager {
 
   Future<void> _replaceController(PairedAndroidTv device) async {
     await _clearController();
-    final controller = AndroidTvRemoteController(
-      pairedDevice: device,
-      certificates: certificates,
-      store: store,
-    );
+    final controller =
+        createController?.call(device) ??
+        AndroidTvRemoteController(
+          pairedDevice: device,
+          certificates: certificates,
+          store: store,
+        );
     _controller = controller;
     _subscription = controller.connectionStates.listen(_changes.add);
   }

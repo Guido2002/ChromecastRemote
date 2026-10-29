@@ -70,7 +70,8 @@ class _PairingScreenState extends State<PairingScreen> {
       if (mounted) {
         setState(() {
           _phase = _PairingPhase.failed;
-          _error = '$error';
+          _error =
+              'Could not complete pairing. Check TV power and Wi-Fi, then try again.';
         });
       }
     }
@@ -78,6 +79,10 @@ class _PairingScreenState extends State<PairingScreen> {
 
   Future<void> _submitCode() async {
     final code = _codeController.text.trim();
+    if (_phase != _PairingPhase.awaitingCode ||
+        !RegExp(r'^[0-9a-fA-F]{6}$').hasMatch(code)) {
+      return;
+    }
     setState(() {
       _phase = _PairingPhase.verifying;
       _error = null;
@@ -113,7 +118,8 @@ class _PairingScreenState extends State<PairingScreen> {
       if (mounted) {
         setState(() {
           _phase = _PairingPhase.failed;
-          _error = '$error';
+          _error =
+              'Could not complete pairing. Check TV power and Wi-Fi, then try again.';
         });
       }
     }
@@ -132,37 +138,43 @@ class _PairingScreenState extends State<PairingScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Pair with TV')),
       body: SafeArea(
-        child: AdaptiveContent(
-          maxWidth: 560,
-          alignment: Alignment.center,
-          child: Padding(
-            padding: EdgeInsets.all(AdaptiveLayout.isTablet(context) ? 40 : 24),
-            child: AnimatedSwitcher(
-              duration: AppMotion.emphasized,
-              switchInCurve: Curves.easeOutCubic,
-              switchOutCurve: Curves.easeInCubic,
-              transitionBuilder: (child, animation) => FadeTransition(
-                opacity: animation,
-                child: ScaleTransition(
-                  scale: Tween(begin: 0.985, end: 1.0).animate(animation),
-                  child: child,
-                ),
+        child: SingleChildScrollView(
+          child: AdaptiveContent(
+            maxWidth: 560,
+            alignment: Alignment.topCenter,
+            child: Padding(
+              padding: EdgeInsets.all(
+                AdaptiveLayout.isTablet(context) ? 40 : 24,
               ),
-              child: KeyedSubtree(
-                key: ValueKey(_phase),
-                child: switch (_phase) {
-                  _PairingPhase.connecting => _PairingProgress(
-                    title: 'Connecting to ${widget.displayName}…',
-                    message:
-                        'Starting the pairing session. If the TV shows a '
-                        'pairing prompt, accept it.',
+              child: AnimatedSwitcher(
+                duration: MediaQuery.disableAnimationsOf(context)
+                    ? Duration.zero
+                    : AppMotion.emphasized,
+                switchInCurve: Curves.easeOutCubic,
+                switchOutCurve: Curves.easeInCubic,
+                transitionBuilder: (child, animation) => FadeTransition(
+                  opacity: animation,
+                  child: ScaleTransition(
+                    scale: Tween(begin: 0.985, end: 1.0).animate(animation),
+                    child: child,
                   ),
-                  _PairingPhase.verifying => const _PairingProgress(
-                    title: 'Verifying code…',
-                  ),
-                  _PairingPhase.awaitingCode => _buildCodeEntry(colors),
-                  _PairingPhase.failed => _buildFailure(colors),
-                },
+                ),
+                child: KeyedSubtree(
+                  key: ValueKey(_phase),
+                  child: switch (_phase) {
+                    _PairingPhase.connecting => _PairingProgress(
+                      title: 'Connecting to ${widget.displayName}…',
+                      message:
+                          'Starting the pairing session. If the TV shows a '
+                          'pairing prompt, accept it.',
+                    ),
+                    _PairingPhase.verifying => const _PairingProgress(
+                      title: 'Verifying code…',
+                    ),
+                    _PairingPhase.awaitingCode => _buildCodeEntry(colors),
+                    _PairingPhase.failed => _buildFailure(colors),
+                  },
+                ),
               ),
             ),
           ),
@@ -194,7 +206,7 @@ class _PairingScreenState extends State<PairingScreen> {
         _CodeInput(
           controller: _codeController,
           onSubmitted: (_) => _submitIfComplete(),
-          onChanged: (_) => _submitIfComplete(),
+          onChanged: (_) => setState(() => _error = null),
         ),
         if (_error != null) ...[
           const SizedBox(height: 12),
@@ -205,7 +217,10 @@ class _PairingScreenState extends State<PairingScreen> {
           ),
         ],
         const SizedBox(height: 24),
-        FilledButton(onPressed: _submitCode, child: const Text('Pair')),
+        FilledButton(
+          onPressed: _codeController.text.length == 6 ? _submitCode : null,
+          child: const Text('Pair'),
+        ),
       ],
     );
   }
@@ -263,76 +278,26 @@ class _CodeInput extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return SizedBox(
-      height: 58,
-      child: Stack(
-        children: [
-          ValueListenableBuilder<TextEditingValue>(
-            valueListenable: controller,
-            builder: (context, value, _) {
-              final code = value.text.toUpperCase();
-              return Row(
-                children: List.generate(6, (index) {
-                  final filled = index < code.length;
-                  final active = index == code.length && code.length < 6;
-                  return Expanded(
-                    child: Padding(
-                      padding: EdgeInsets.only(left: index == 0 ? 0 : 6),
-                      child: AnimatedContainer(
-                        duration: AppMotion.quick,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: colors.surfaceContainerLow,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: active
-                                ? colors.primary
-                                : colors.outlineVariant,
-                            width: active ? 1.5 : 1,
-                          ),
-                        ),
-                        child: Text(
-                          filled ? code[index] : '',
-                          style: Theme.of(context).textTheme.titleLarge
-                              ?.copyWith(
-                                fontFeatures: const [
-                                  FontFeature.tabularFigures(),
-                                ],
-                              ),
-                        ),
-                      ),
-                    ),
-                  );
-                }),
-              );
-            },
-          ),
-          Positioned.fill(
-            child: Opacity(
-              opacity: 0.01,
-              child: TextField(
-                controller: controller,
-                autofocus: true,
-                maxLength: 6,
-                autocorrect: false,
-                enableSuggestions: false,
-                textCapitalization: TextCapitalization.characters,
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp('[0-9a-fA-F]')),
-                ],
-                decoration: const InputDecoration(
-                  counterText: '',
-                  border: InputBorder.none,
-                  filled: false,
-                ),
-                onChanged: onChanged,
-                onSubmitted: onSubmitted,
-              ),
-            ),
-          ),
-        ],
+    return TextField(
+      controller: controller,
+      autofocus: true,
+      maxLength: 6,
+      autocorrect: false,
+      enableSuggestions: false,
+      textCapitalization: TextCapitalization.characters,
+      textInputAction: TextInputAction.done,
+      style: Theme.of(context).textTheme.titleLarge?.copyWith(letterSpacing: 8),
+      textAlign: TextAlign.center,
+      inputFormatters: [
+        FilteringTextInputFormatter.allow(RegExp('[0-9a-fA-F]')),
+      ],
+      decoration: const InputDecoration(
+        labelText: 'Six-character TV code',
+        hintText: 'A1B2C3',
+        counterText: '',
       ),
+      onChanged: onChanged,
+      onSubmitted: onSubmitted,
     );
   }
 }

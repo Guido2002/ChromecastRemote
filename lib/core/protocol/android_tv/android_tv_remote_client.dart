@@ -74,11 +74,11 @@ class AndroidTvRemoteClient {
   Timer? _idleTimer;
   Completer<void>? _readyCompleter;
   bool _closedByUs = false;
+  int _connectionEpoch = 0;
 
   int _activeFeatures = AndroidTvFeatures.requested;
 
-  final _volumeController =
-      StreamController<AndroidTvVolumeInfo>.broadcast();
+  final _volumeController = StreamController<AndroidTvVolumeInfo>.broadcast();
   final _currentAppController = StreamController<String>.broadcast();
   final _powerStateController = StreamController<bool>.broadcast();
 
@@ -99,8 +99,7 @@ class AndroidTvRemoteClient {
   Future<void> get ready =>
       _readyCompleter?.future ?? Future.error('Not connected');
 
-  Stream<AndroidTvVolumeInfo> get volumeInfoUpdates =>
-      _volumeController.stream;
+  Stream<AndroidTvVolumeInfo> get volumeInfoUpdates => _volumeController.stream;
   Stream<String> get currentAppUpdates => _currentAppController.stream;
   Stream<bool> get powerStateUpdates => _powerStateController.stream;
 
@@ -117,22 +116,37 @@ class AndroidTvRemoteClient {
   }) async {
     await close();
     _closedByUs = false;
+    final epoch = _connectionEpoch;
     _readyCompleter = Completer<void>();
+    // A cancelled connection may finish before the controller awaits ready.
+    unawaited(
+      _readyCompleter!.future.then<void>(
+        (_) {},
+        onError: (Object error, StackTrace stack) {},
+      ),
+    );
 
     final context = await certificates.buildSecurityContext();
+    if (epoch != _connectionEpoch) {
+      throw const RemoteConnectionException('Connection cancelled.');
+    }
     try {
-      _socket = await SecureSocket.connect(
+      final socket = await SecureSocket.connect(
         host,
         port,
         context: context,
         onBadCertificate: (certificate) {
           if (pinnedServerCertificateSha256 == null) return true;
-          final fingerprint =
-              sha256.convert(certificate.der).toString();
+          final fingerprint = sha256.convert(certificate.der).toString();
           return fingerprint == pinnedServerCertificateSha256;
         },
         timeout: timeout,
       );
+      if (epoch != _connectionEpoch) {
+        socket.destroy();
+        throw const RemoteConnectionException('Connection cancelled.');
+      }
+      _socket = socket;
     } on SocketException catch (error) {
       throw RemoteConnectionException(
         'Could not reach the TV: ${error.message}',
@@ -153,7 +167,10 @@ class AndroidTvRemoteClient {
     _resetIdleTimer();
   }
 
-  void sendKey(int keyCode, {RemoteDirection direction = RemoteDirection.SHORT}) {
+  void sendKey(
+    int keyCode, {
+    RemoteDirection direction = RemoteDirection.SHORT,
+  }) {
     final socket = _socket;
     if (socket == null) return;
     try {
@@ -166,19 +183,32 @@ class AndroidTvRemoteClient {
               .writeToBuffer(),
         ),
       );
-      _resetIdleTimer();
     } catch (_) {
       _dropConnection('Failed to send a command to the TV.');
     }
   }
 
-  /// Sends the key down phase of a long press (repeat while held).
-  void startLongPress(int keyCode) =>
-      sendKey(keyCode, direction: RemoteDirection.START_LONG);
+  final Set<int> _heldKeys = {};
 
-  /// Sends the key up phase of a long press.
-  void endLongPress(int keyCode) =>
+  /// Tracks held keys so leaving a surface cannot leave a TV key pressed.
+  void startLongPress(int keyCode) {
+    if (_socket == null) return;
+    if (_heldKeys.add(keyCode)) {
+      sendKey(keyCode, direction: RemoteDirection.START_LONG);
+    }
+  }
+
+  void endLongPress(int keyCode) {
+    if (_heldKeys.remove(keyCode)) {
       sendKey(keyCode, direction: RemoteDirection.END_LONG);
+    }
+  }
+
+  void cancelLongPress() {
+    for (final key in _heldKeys.toList()) {
+      endLongPress(key);
+    }
+  }
 
   /// Launches an app via a `https://...` / `app://...` link where the TV
   /// supports APP_LINK.
@@ -188,27 +218,34 @@ class AndroidTvRemoteClient {
     socket.add(
       MessageFraming.encode(
         (RemoteMessage()
-              ..remoteAppLinkLaunchRequest =
-                  (RemoteAppLinkLaunchRequest()..appLink = link))
+              ..remoteAppLinkLaunchRequest = (RemoteAppLinkLaunchRequest()
+                ..appLink = link))
             .writeToBuffer(),
       ),
     );
   }
 
   Future<void> close() async {
+    _connectionEpoch++;
+    cancelLongPress();
+    currentApp = null;
+    volumeInfo = null;
     _closedByUs = true;
     _idleTimer?.cancel();
     _idleTimer = null;
-    await _subscription?.cancel();
+    final subscription = _subscription;
     _subscription = null;
     final socket = _socket;
     _socket = null;
     socket?.destroy();
     if (_readyCompleter?.isCompleted == false) {
       _readyCompleter!.completeError(
-        const RemoteConnectionException('Disconnected before the TV was ready.'),
+        const RemoteConnectionException(
+          'Disconnected before the TV was ready.',
+        ),
       );
     }
+    await subscription?.cancel();
   }
 
   Future<void> dispose() async {
@@ -250,21 +287,27 @@ class AndroidTvRemoteClient {
         appVersion: configure.deviceInfo.appVersion,
       );
       _activeFeatures = AndroidTvFeatures.requested & configure.code1;
-      _send(RemoteMessage()
-        ..remoteConfigure = (RemoteConfigure()
-          ..code1 = _activeFeatures
-          ..deviceInfo = (RemoteDeviceInfo()
-            ..unknown1 = 1
-            ..unknown2 = '1'
-            ..packageName = 'atvremote'
-            ..appVersion = '1.0.0')));
+      _send(
+        RemoteMessage()
+          ..remoteConfigure = (RemoteConfigure()
+            ..code1 = _activeFeatures
+            ..deviceInfo = (RemoteDeviceInfo()
+              ..unknown1 = 1
+              ..unknown2 = '1'
+              ..packageName = 'atvremote'
+              ..appVersion = '1.0.0')),
+      );
     } else if (message.hasRemoteSetActive()) {
-      _send(RemoteMessage()
-        ..remoteSetActive = (RemoteSetActive()..active = _activeFeatures));
+      _send(
+        RemoteMessage()
+          ..remoteSetActive = (RemoteSetActive()..active = _activeFeatures),
+      );
     } else if (message.hasRemotePingRequest()) {
-      _send(RemoteMessage()
-        ..remotePingResponse =
-            (RemotePingResponse()..val1 = message.remotePingRequest.val1));
+      _send(
+        RemoteMessage()
+          ..remotePingResponse = (RemotePingResponse()
+            ..val1 = message.remotePingRequest.val1),
+      );
     } else if (message.hasRemoteStart()) {
       isOn = message.remoteStart.started;
       _powerStateController.add(isOn);
@@ -310,7 +353,8 @@ class AndroidTvRemoteClient {
 
   void _dropConnection(String reason) {
     if (_socket == null) return;
+    final notify = !_closedByUs;
     unawaited(close());
-    if (!_closedByUs) onDisconnected?.call(reason);
+    if (notify) onDisconnected?.call(reason);
   }
 }

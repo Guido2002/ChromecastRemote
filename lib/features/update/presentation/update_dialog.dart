@@ -64,7 +64,8 @@ class _UpdateAvailableDialogState extends State<UpdateAvailableDialog> {
       } else {
         setState(() {
           _downloading = false;
-          _error = 'Android could not open the installer (${launch.detail}). '
+          _error =
+              'Android could not open the installer (${launch.detail}). '
               'Allow installs from this app in Settings, or use '
               '"View on GitHub".';
         });
@@ -101,20 +102,19 @@ class _UpdateAvailableDialogState extends State<UpdateAvailableDialog> {
           Text(
             _canInstallInApp
                 ? 'You are running ${widget.currentVersion}. The update is '
-                    'downloaded in the app and installed with one '
-                    'confirmation from Android.'
+                      'downloaded in the app. Android will ask you to confirm '
+                      'installation and may require permission to install updates.'
                 : 'You are running ${widget.currentVersion}. Download the '
-                    'latest APK from GitHub Releases and install it over the '
-                    'current app.',
+                      'latest APK from GitHub Releases and install it over the '
+                      'current app.',
           ),
           if (_canInstallInApp && release.apkAsset!.sizeBytes > 0) ...[
             const SizedBox(height: 8),
             Text(
               'Download size: ${_formatBytes(release.apkAsset!.sizeBytes)}',
-              style: Theme.of(context)
-                  .textTheme
-                  .bodySmall
-                  ?.copyWith(color: colors.onSurfaceVariant),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: colors.onSurfaceVariant),
             ),
           ],
           if (_downloading) ...[
@@ -133,11 +133,12 @@ class _UpdateAvailableDialogState extends State<UpdateAvailableDialog> {
             Text(
               'Confirm the installation in the Android installer. If Android '
               'says "App not installed", the update was signed with a '
-              'different key than the installed app — uninstall the app '
-              'first, then install the update.',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: colors.onSurfaceVariant,
-                  ),
+              'different key than the installed app. Keep your installed '
+              'app and use a release signed with the matching key to preserve '
+              'your saved TVs.',
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: colors.onSurfaceVariant),
             ),
           ],
           if (_error != null) ...[

@@ -142,3 +142,58 @@ class PairedDeviceStore {
     return null;
   }
 }
+
+/// A remembered Cast receiver is a discovery identity, not trusted TV pairing.
+class SavedCastReceiver {
+  const SavedCastReceiver({required this.id, required this.name});
+  final String id;
+  final String name;
+}
+
+extension CastReceiverStorage on PairedDeviceStore {
+  Future<List<SavedCastReceiver>> loadCastReceivers() async {
+    final raw = await store.read('saved_cast_receivers_v1');
+    if (raw == null) return [];
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return [];
+      return [
+        for (final value in decoded.whereType<Map<String, dynamic>>())
+          if (value['id'] is String && value['name'] is String)
+            SavedCastReceiver(
+              id: value['id'] as String,
+              name: value['name'] as String,
+            ),
+      ];
+    } on FormatException {
+      return [];
+    }
+  }
+
+  Future<void> rememberCastReceiver(SavedCastReceiver receiver) async {
+    final receivers = await loadCastReceivers();
+    receivers.removeWhere((item) => item.id == receiver.id);
+    receivers.add(receiver);
+    await store.write(
+      'saved_cast_receivers_v1',
+      jsonEncode([
+        for (final item in receivers) {'id': item.id, 'name': item.name},
+      ]),
+    );
+  }
+
+  Future<void> forgetCastReceiver(String id) async {
+    final receivers = await loadCastReceivers();
+    receivers.removeWhere((item) => item.id == id);
+    await store.write(
+      'saved_cast_receivers_v1',
+      jsonEncode([
+        for (final item in receivers) {'id': item.id, 'name': item.name},
+      ]),
+    );
+    final last = await loadLastDevice();
+    if (last?.protocol == 'googleCast' && last?.id == id) {
+      await store.delete('last_device_v1');
+    }
+  }
+}

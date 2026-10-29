@@ -26,25 +26,70 @@ class DiscoveryService {
 
   bool _castDiscoveryStarted = false;
   bool _running = false;
+  Future<void> _operations = Future.value();
+
+  Future<void> _serialized(Future<void> Function() operation) {
+    final result = _operations.then((_) => operation());
+    _operations = result.then<void>(
+      (_) {},
+      onError: (Object error, StackTrace stack) {},
+    );
+    return result;
+  }
 
   /// The currently known devices, re-emitted on every change.
   Stream<List<DiscoveredDevice>> get devices => _devicesController.stream;
 
   bool get isRunning => _running;
 
-  Future<void> start() async {
-    if (_running) return;
-    _running = true;
-    _devices.clear();
-    _emit();
-    await Future.wait([_startAndroidTvDiscovery(), _startCastDiscovery()]);
+  List<DiscoveredDevice> get currentDevices =>
+      List.unmodifiable(_devices.values);
+  List<String> errors = const [];
+
+  Future<void> start({bool castAvailable = true}) =>
+      _serialized(() => _start(castAvailable));
+
+  Future<void> _start(bool castAvailable) async {
+    errors = [];
+    if (!_running) {
+      _running = true;
+      _devices.clear();
+      _emit();
+    }
+    await Future.wait([
+      if (_bonsoirDiscovery == null)
+        _startAndroidTvDiscovery().catchError((Object error) {
+          errors = [
+            ...errors,
+            'TV discovery could not start. Check local network access and try again.',
+          ];
+        }),
+      if (castAvailable && !_castDiscoveryStarted)
+        _startCastDiscovery().catchError((Object error) {
+          errors = [
+            ...errors,
+            'Cast discovery could not start. TV remote discovery remains available.',
+          ];
+        }),
+    ]);
+    if (errors.isNotEmpty &&
+        _bonsoirDiscovery == null &&
+        !_castDiscoveryStarted) {
+      _running = false;
+    }
   }
 
-  Future<void> stop() async {
+  Future<void> stop() => _serialized(_stop);
+
+  Future<void> _stop() async {
     _running = false;
     await _bonsoirSubscription?.cancel();
     _bonsoirSubscription = null;
-    await _bonsoirDiscovery?.stop();
+    try {
+      await _bonsoirDiscovery?.stop();
+    } catch (_) {
+      /* Continue stopping the other discovery backend. */
+    }
     _bonsoirDiscovery = null;
 
     await _castSubscription?.cancel();
@@ -71,9 +116,16 @@ class DiscoveryService {
       printLogs: false,
     );
     _bonsoirDiscovery = discovery;
-    await discovery.initialize();
-    _bonsoirSubscription = discovery.eventStream?.listen(_onBonsoirEvent);
-    await discovery.start();
+    try {
+      await discovery.initialize();
+      _bonsoirSubscription = discovery.eventStream?.listen(_onBonsoirEvent);
+      await discovery.start();
+    } catch (_) {
+      await _bonsoirSubscription?.cancel();
+      _bonsoirSubscription = null;
+      _bonsoirDiscovery = null;
+      rethrow;
+    }
   }
 
   void _onBonsoirEvent(BonsoirDiscoveryEvent event) {
@@ -102,7 +154,15 @@ class DiscoveryService {
   Future<void> _startCastDiscovery() async {
     _castSubscription = GoogleCastDiscoveryManager.instance.devicesStream
         .listen(_onCastDevices);
-    await GoogleCastDiscoveryManager.instance.startDiscovery(activeScan: true);
+    try {
+      await GoogleCastDiscoveryManager.instance.startDiscovery(
+        activeScan: true,
+      );
+    } catch (_) {
+      await _castSubscription?.cancel();
+      _castSubscription = null;
+      rethrow;
+    }
     _castDiscoveryStarted = true;
   }
 
